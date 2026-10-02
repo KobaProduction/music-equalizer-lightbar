@@ -41,6 +41,7 @@ function(melb_add_phyplus_profile_check)
         "${_phyplus_root}/components/profiles/GATT"
         "${_phyplus_root}/components/profiles/Roles"
         "${_phyplus_root}/components/osal/include"
+        "${_phyplus_root}/components/driver/log"
     )
 
     target_compile_definitions(melb_phyplus_lotus_profile PRIVATE
