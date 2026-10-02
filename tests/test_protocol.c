@@ -158,6 +158,15 @@ static void test_local_buttons(void)
     melb_local_controls_init(&controls);
 
     run_button_ticks(&controls, &state, true, false, false, 5u);
+    assert(state.power == 0u);
+    run_button_ticks(
+        &controls,
+        &state,
+        true,
+        false,
+        false,
+        MELB_LOCAL_BUTTON_LONG_TICKS + MELB_LOCAL_BUTTON_REPEAT_TICKS + 2u);
+    assert(state.power == 0u);
     run_button_ticks(&controls, &state, false, false, false, 5u);
     assert(state.power == 0u);
 

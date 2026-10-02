@@ -88,6 +88,16 @@ def main() -> None:
         "(void)0;",
         "avoid name-setting flash write",
     )
+    header_path = output / "source" / "thb2_main.h"
+    header_text = header_path.read_text(encoding="utf-8")
+    header_text = replace_once(
+        header_text,
+        "#define LCD_TIMER_EVT         0x0400  // Timer related to display sleep and key long press feature expired",
+        "#define LCD_TIMER_EVT         0x0400  // Timer related to display sleep and key long press feature expired\n#define MELB_LOCAL_CONTROL_EVT  0x0800  // Music-Light-V3 local buttons/animation tick",
+        "reserve local-control OSAL event",
+    )
+    header_path.write_text(header_text, encoding="utf-8")
+
     main_text = replace_once(
         main_text,
         '#include "sbp_profile.h"',
@@ -97,13 +107,13 @@ def main() -> None:
     main_text = replace_once(
         main_text,
         "SimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile",
-        "SimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile\n\tmelb_lotus_local_init();\n\tosal_start_reload_timer(simpleBLEPeripheral_TaskID, 0x0800, 10);",
+        "SimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile\n\tmelb_lotus_local_init();\n\tosal_start_reload_timer(simpleBLEPeripheral_TaskID, MELB_LOCAL_CONTROL_EVT, 10);",
         "start local-control timer",
     )
     main_text = replace_once(
         main_text,
         "\tif(events & SBP_CMDDATA) {",
-        "\tif(events & 0x0800) {\n\t\tmelb_lotus_local_tick();\n\t\treturn(events ^ 0x0800);\n\t}\n\tif(events & SBP_CMDDATA) {",
+        "\tif(events & MELB_LOCAL_CONTROL_EVT) {\n\t\tmelb_lotus_local_tick();\n\t\treturn(events ^ MELB_LOCAL_CONTROL_EVT);\n\t}\n\tif(events & SBP_CMDDATA) {",
         "local-control event handler",
     )
     main_path.write_text(main_text, encoding="utf-8")

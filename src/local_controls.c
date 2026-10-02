@@ -4,6 +4,7 @@
 
 typedef enum {
     MELB_BUTTON_EVENT_NONE = 0,
+    MELB_BUTTON_EVENT_PRESS,
     MELB_BUTTON_EVENT_SHORT,
     MELB_BUTTON_EVENT_LONG_STEP,
 } melb_button_event_t;
@@ -48,6 +49,7 @@ static melb_button_event_t update_button(
                 button->hold_ticks = 0u;
                 button->repeat_ticks = 0u;
                 button->long_active = 0u;
+                return MELB_BUTTON_EVENT_PRESS;
             } else {
                 const uint8_t was_long = button->long_active;
                 button->hold_ticks = 0u;
@@ -127,7 +129,7 @@ bool melb_local_controls_tick(
     const melb_button_event_t mode_event =
         update_button(&controls->mode_speed, mode_speed_pressed);
 
-    if (power_event == MELB_BUTTON_EVENT_SHORT) {
+    if (power_event == MELB_BUTTON_EVENT_PRESS) {
         state->power = state->power == 0u ? 1u : 0u;
         changed = true;
     }
