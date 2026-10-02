@@ -7,21 +7,21 @@
   },
   "configurePresets": [
     {
-      "name": "st17h66b",
-      "displayName": "ST17H66B (GNU Arm Embedded)",
+      "name": "music-light-v3-221101",
+      "displayName": "Music-Light-V3-221101 / ST17H66B",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/st17h66b",
+      "binaryDir": "${sourceDir}/build/music-light-v3-221101",
       "toolchainFile": "${sourceDir}/cmake/arm-none-eabi-gcc.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "MELB_TARGET": "st17h66b"
+        "MELB_BOARD": "music-light-v3-221101"
       }
     }
   ],
   "buildPresets": [
     {
-      "name": "st17h66b",
-      "configurePreset": "st17h66b"
+      "name": "music-light-v3-221101",
+      "configurePreset": "music-light-v3-221101"
     }
   ]
 }

@@ -1,15 +1,16 @@
-name: build
+name: release
 
 on:
   push:
-  pull_request:
+    tags:
+      - "v*"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  gcc:
-    name: GCC / ${{ matrix.board }}
+  firmware:
+    name: Build / ${{ matrix.board }}
     runs-on: ubuntu-24.04
 
     strategy:
@@ -27,16 +28,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes gcc-arm-none-eabi ninja-build
 
-      - name: Toolchain version
-        run: arm-none-eabi-gcc --version
-
       - name: Configure
         run: cmake --preset "${{ matrix.board }}"
 
       - name: Build
         run: cmake --build --preset "${{ matrix.board }}" --verbose
 
-      - name: Upload firmware artifacts
+      - name: Upload board artifacts
         uses: actions/upload-artifact@v4
         with:
           name: firmware-${{ matrix.board }}
@@ -46,3 +44,28 @@ jobs:
             build/${{ matrix.board }}/*.bin
             build/${{ matrix.board }}/*.map
           if-no-files-found: error
+
+  publish:
+    name: Publish prerelease
+    runs-on: ubuntu-24.04
+    needs:
+      - firmware
+
+    steps:
+      - name: Download all board artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: firmware-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --prerelease \
+            dist/*
