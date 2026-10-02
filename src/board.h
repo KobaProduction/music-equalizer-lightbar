@@ -20,7 +20,14 @@ typedef struct {
     st17h66b_pin_t programming_uart_rx_pin;
 
     /*
-     * Confirmed analog microphone path on Music-Light-V3-221101.
+     * Confirmed controls on Music-Light-V3-221101.
+     */
+    st17h66b_pin_t button_power_pin;
+    st17h66b_pin_t button_color_bright_pin;
+    st17h66b_pin_t button_mode_speed_pin;
+
+    /*
+     * Confirmed analog microphone path.
      * P15 also carries AIO_4 / ADC4 and can provide MICBIAS.
      */
     st17h66b_pin_t microphone_pin;
