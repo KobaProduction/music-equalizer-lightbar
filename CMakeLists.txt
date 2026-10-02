@@ -1,8 +1,36 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(music_equalizer_lightbar LANGUAGES C ASM)
+project(music_equalizer_lightbar LANGUAGES C)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+option(MELB_HOST_TESTS "Build host-side protocol tests instead of firmware" OFF)
+
+if(MELB_HOST_TESTS)
+    enable_testing()
+
+    add_executable(melb_host_tests
+        tests/test_protocol.c
+        src/ble_control.c
+        src/ws2812b.c
+    )
+
+    target_include_directories(melb_host_tests PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    )
+
+    target_compile_features(melb_host_tests PRIVATE c_std_11)
+    target_compile_options(melb_host_tests PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+    )
+
+    add_test(NAME protocol COMMAND melb_host_tests)
+    return()
+endif()
+
+enable_language(ASM)
 
 set(MELB_BOARD "music-light-v3-221101" CACHE STRING "Board target")
 set_property(CACHE MELB_BOARD PROPERTY STRINGS music-light-v3-221101)
@@ -19,6 +47,7 @@ set(MELB_OUTPUT_BASENAME
 
 add_executable(melb_firmware
     src/main.c
+    src/ble_control.c
     src/board_music_light_v3_221101.c
     src/ws2812b.c
     src/startup_st17h66b.S

@@ -1,3 +1,4 @@
+#include "ble_control.h"
 #include "board.h"
 #include "ws2812b.h"
 
@@ -8,12 +9,15 @@ enum {
 
 static ws2812b_pixel_t frame[MELB_LED_COUNT];
 static uint8_t serialized_frame[MELB_WS2812B_FRAME_BYTES];
+static melb_control_state_t control_state;
 
 int main(void)
 {
     const melb_board_config_t *board = melb_board_config();
 
+    melb_control_state_init(&control_state);
     ws2812b_clear(frame, board->led_count);
+
     (void)ws2812b_serialize_grb(
         frame,
         board->led_count,
@@ -21,8 +25,9 @@ int main(void)
         sizeof(serialized_frame));
 
     /*
-     * Hardware output is deliberately not attempted until the actual board
-     * GPIO mapping is continuity-tested.
+     * Hardware output and BLE transport are deliberately not attempted until
+     * the board GPIO map and the legally distributable ST17H66B BLE backend are
+     * established.
      */
     for (;;) {
         __asm volatile ("nop");

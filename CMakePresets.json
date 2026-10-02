@@ -16,12 +16,35 @@
         "CMAKE_BUILD_TYPE": "Release",
         "MELB_BOARD": "music-light-v3-221101"
       }
+    },
+    {
+      "name": "host-tests",
+      "displayName": "Host protocol tests",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/host-tests",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "MELB_HOST_TESTS": "ON"
+      }
     }
   ],
   "buildPresets": [
     {
       "name": "music-light-v3-221101",
       "configurePreset": "music-light-v3-221101"
+    },
+    {
+      "name": "host-tests",
+      "configurePreset": "host-tests"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "host-tests",
+      "configurePreset": "host-tests",
+      "output": {
+        "outputOnFailure": true
+      }
     }
   ]
 }
