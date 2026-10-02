@@ -1,34 +1,30 @@
 # Music Equalizer Light Bar
 
-Firmware project for a music-reactive RGB light bar with BLE control and support for multiple MCU targets.
+Multi-target embedded firmware for a music-reactive RGB light bar with BLE control.
 
-## Status
+## First hardware target
 
-The repository is in initial hardware bring-up.
+The first supported board is the PCB marked exactly:
 
-- Build system: CMake
-- Toolchain: GNU Arm Embedded
-- First target: ST17H66B (Arm Cortex-M0)
-- BLE: required; GCC-compatible stack integration is the next firmware milestone
-- Hardware validation on the target light-bar PCB: pending
+**`Music-Light-V3-221101`**
 
-The current build is deliberately a **compiler/bootstrap target**. It proves the repository, cross-toolchain, target selection, and CI path, but it does not yet link a flashable ST17H66B image.
+Current board facts:
 
-## Layout
+- MCU: ST17H66B, Arm Cortex-M0
+- light source: 32 addressable RGB LEDs
+- LED protocol: WS2812B-compatible one-wire data stream
+- controls: three physical button positions providing Power, Color/Bright, and Mode/Speed functions
+- microphone: populated; MCU connection is being traced
+- USB Type-C: populated
+- battery pads: populated on the PCB; battery is absent on the inspected unit
+- BLE: required project capability
+- exact GPIO map: bring-up in progress
 
-```text
-.
-├── src/                  Project source
-├── cmake/                Cross-toolchain/build support
-├── docs/                 Hardware and bring-up notes
-├── .github/workflows/    CI
-├── CMakeLists.txt
-└── CMakePresets.json
-```
-
-The source tree will be decomposed further only when real target/application boundaries require it.
+See [docs/Music-Light-V3-221101.md](docs/Music-Light-V3-221101.md).
 
 ## Build
+
+The canonical build identity is the **board**, not the MCU. MCU selection is derived from the board definition so additional hardware revisions can be added later without renaming the project.
 
 Requirements:
 
@@ -36,29 +32,48 @@ Requirements:
 - Ninja
 - GNU Arm Embedded toolchain providing `arm-none-eabi-gcc`
 
-Host-shell build:
+Build the current board:
 
 ```sh
-cmake --preset st17h66b
-cmake --build --preset st17h66b
+cmake --preset music-light-v3-221101
+cmake --build --preset music-light-v3-221101
 ```
 
-Build output is written under `build/st17h66b/`.
+Outputs are produced under `build/music-light-v3-221101/`:
 
-## ST17H66B bring-up
+- `music-equalizer-lightbar-Music-Light-V3-221101-st17h66b.elf`
+- `music-equalizer-lightbar-Music-Light-V3-221101-st17h66b.hex`
+- `music-equalizer-lightbar-Music-Light-V3-221101-st17h66b.bin`
+- linker map file
 
-Current technical notes and source references are maintained in [docs/ST17H66B.md](docs/ST17H66B.md).
+The ST17H66B startup/linker contract is currently an experimental bring-up implementation inferred from public reverse-engineering evidence. A green CI build does **not** mean the image has been hardware-validated.
 
-The first hardware milestone is:
+## Repository layout
 
-1. preserve/read the original flash;
-2. establish a reproducible GCC-linked firmware image;
-3. verify UART ROM programming on the real board;
-4. bring up BLE;
-5. bring up the addressable LED data path.
+```text
+.
+├── src/                  Firmware and target source
+├── cmake/                Cross-toolchain/build support
+├── docs/                 Board, MCU and build notes
+├── .github/workflows/    CI and release automation
+├── CMakeLists.txt
+└── CMakePresets.json
+```
+
+The source tree remains deliberately shallow during bring-up.
+
+## Current milestones
+
+1. reproducible GCC linked image and CI artifacts;
+2. preserve/read the original `Music-Light-V3-221101` flash;
+3. verify UART ROM programming and the startup/linker contract on hardware;
+4. integrate a legally distributable GCC BLE stack;
+5. map and drive the 32-LED WS2812B chain;
+6. map buttons and microphone/ADC path;
+7. add additional board/MCU targets.
 
 ## Licensing
 
-Project-owned code in this repository is covered by the repository MIT license.
+Project-owned code is MIT-licensed.
 
-Third-party SDK, BLE, ROM-support, linker, and reverse-engineered sources are not automatically covered by that license. They will only be imported after their provenance and applicable license have been reviewed.
+Third-party SDK, BLE, ROM-support and reverse-engineered source is not automatically covered by that license. Such code is only imported after provenance and applicable license are reviewed.

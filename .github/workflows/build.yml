@@ -9,14 +9,14 @@ permissions:
 
 jobs:
   gcc:
-    name: GCC / ${{ matrix.target }}
+    name: GCC / ${{ matrix.board }}
     runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - st17h66b
+        board:
+          - music-light-v3-221101
 
     steps:
       - name: Checkout
@@ -31,7 +31,18 @@ jobs:
         run: arm-none-eabi-gcc --version
 
       - name: Configure
-        run: cmake --preset "${{ matrix.target }}"
+        run: cmake --preset "${{ matrix.board }}"
 
       - name: Build
-        run: cmake --build --preset "${{ matrix.target }}" --verbose
+        run: cmake --build --preset "${{ matrix.board }}" --verbose
+
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.board }}
+          path: |
+            build/${{ matrix.board }}/*.elf
+            build/${{ matrix.board }}/*.hex
+            build/${{ matrix.board }}/*.bin
+            build/${{ matrix.board }}/*.map
+          if-no-files-found: error

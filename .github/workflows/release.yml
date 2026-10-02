@@ -1,0 +1,41 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  firmware:
+    name: Release / ${{ matrix.board }}
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        board:
+          - music-light-v3-221101
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install GNU Arm Embedded toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes gcc-arm-none-eabi ninja-build
+
+      - name: Configure
+        run: cmake --preset "${{ matrix.board }}"
+
+      - name: Build
+        run: cmake --build --preset "${{ matrix.board }}" --verbose
+
+      - name: Publish prerelease artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}"             --repo "${GITHUB_REPOSITORY}"             --title "${GITHUB_REF_NAME}"             --generate-notes             --prerelease             build/"${{ matrix.board }}"/*.elf             build/"${{ matrix.board }}"/*.hex             build/"${{ matrix.board }}"/*.bin             build/"${{ matrix.board }}"/*.map
