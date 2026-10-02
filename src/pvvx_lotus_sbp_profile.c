@@ -1,7 +1,9 @@
+#include <stdint.h>
+
+#include "bcomdef.h"
 #include "sbp_profile.h"
 
 #include "att.h"
-#include "bcomdef.h"
 #include "gatt.h"
 #include "gatt_uuid.h"
 #include "gattservapp.h"
