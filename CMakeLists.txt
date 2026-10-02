@@ -30,6 +30,7 @@ if(MELB_HOST_TESTS)
         src/ble_control.c
         src/board_music_light_v3_221101.c
         src/lotus_lantern.c
+        src/local_controls.c
         src/ws2812b.c
         src/ws2812b_spi.c
     )
