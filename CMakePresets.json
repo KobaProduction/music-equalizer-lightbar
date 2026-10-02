@@ -42,6 +42,17 @@
       }
     },
     {
+      "name": "music-light-v3-221101-lotus-ble",
+      "displayName": "Music-Light-V3-221101 / Lotus Lantern BLE",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/music-light-v3-221101-lotus-ble",
+      "toolchainFile": "${sourceDir}/cmake/arm-none-eabi-gcc.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "MELB_PHYPLUS_LOTUS_FIRMWARE": "ON"
+      }
+    },
+    {
       "name": "host-tests",
       "displayName": "Host protocol tests",
       "generator": "Ninja",
@@ -64,7 +75,16 @@
     {
       "name": "phyplus-profile-check",
       "configurePreset": "phyplus-profile-check",
-      "targets": ["phyplus-ble-profile-check"]
+      "targets": [
+        "phyplus-ble-profile-check"
+      ]
+    },
+    {
+      "name": "music-light-v3-221101-lotus-ble",
+      "configurePreset": "music-light-v3-221101-lotus-ble",
+      "targets": [
+        "melb-lotus-ble"
+      ]
     },
     {
       "name": "host-tests",

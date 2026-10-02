@@ -39,6 +39,7 @@ function(melb_resolve_phyplus_sdk out_var)
         endif()
     endforeach()
 
+    set(MELB_THB2_SOURCE_DIR "${thb2_SOURCE_DIR}" PARENT_SCOPE)
     set(${out_var} "${_phyplus_root}" PARENT_SCOPE)
 endfunction()
 
