@@ -5,6 +5,15 @@ project(music_equalizer_lightbar LANGUAGES C)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(MELB_HOST_TESTS "Build host-side protocol tests instead of firmware" OFF)
+option(MELB_PHYPLUS_PROFILE_CHECK "Compile project BLE profile against an external Phyplus SDK" OFF)
+set(MELB_PHYPLUS_SDK_ROOT "" CACHE PATH "Path to external PHY62x2 SDK tree")
+
+if(MELB_PHYPLUS_PROFILE_CHECK)
+    enable_language(ASM)
+    include(cmake/phyplus_external.cmake)
+    melb_add_phyplus_profile_check()
+    return()
+endif()
 
 if(MELB_HOST_TESTS)
     enable_testing()
