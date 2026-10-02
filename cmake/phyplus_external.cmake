@@ -26,7 +26,7 @@ function(melb_resolve_phyplus_sdk out_var)
 
     set(_required_files
         "${_phyplus_root}/components/ble/include/att.h"
-        "${_phyplus_root}/components/ble/host/gatt.h"
+        "${_phyplus_root}/components/ble/include/gatt.h"
         "${_phyplus_root}/components/ble/host/gattservapp.h"
         "${_phyplus_root}/components/inc/mcu_phy_bumbee.h"
         "${_phyplus_root}/misc/bb_rom_sym_m0.gcc"
