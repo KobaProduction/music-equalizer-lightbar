@@ -8,6 +8,28 @@ permissions:
   contents: read
 
 jobs:
+  host-tests:
+    name: Host protocol tests
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ninja-build
+
+      - name: Configure
+        run: cmake --preset host-tests
+
+      - name: Build
+        run: cmake --build --preset host-tests --verbose
+
+      - name: Test
+        run: ctest --preset host-tests
+
   gcc:
     name: GCC / ${{ matrix.board }}
     runs-on: ubuntu-24.04
