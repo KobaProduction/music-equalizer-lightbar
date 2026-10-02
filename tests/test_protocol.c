@@ -1,5 +1,6 @@
 #include "ble_control.h"
 #include "board.h"
+#include "lotus_lantern.h"
 #include "ws2812b.h"
 #include "ws2812b_spi.h"
 
@@ -68,6 +69,68 @@ static void test_ws2812b_spi_encoding(void)
     }
 
     assert(ws2812b_spi_encoded_size(32u) == 304u);
+}
+
+
+static void test_lotus_lantern_protocol(void)
+{
+    melb_control_state_t state = {0};
+    melb_control_state_init(&state);
+
+    const uint8_t power_off[LOTUS_LANTERN_FRAME_SIZE] =
+        {0x7eu, 0x04u, 0x04u, 0x00u, 0x00u, 0x00u, 0xffu, 0x00u, 0xefu};
+    const uint8_t power_on[LOTUS_LANTERN_FRAME_SIZE] =
+        {0x7eu, 0x04u, 0x04u, 0x01u, 0x00u, 0x01u, 0xffu, 0x00u, 0xefu};
+    const uint8_t rgb[LOTUS_LANTERN_FRAME_SIZE] =
+        {0x7eu, 0x07u, 0x05u, 0x03u, 0x11u, 0x22u, 0x33u, 0x10u, 0xefu};
+    const uint8_t brightness[LOTUS_LANTERN_FRAME_SIZE] =
+        {0x7eu, 0x04u, 0x01u, 0x55u, 0x00u, 0xffu, 0xffu, 0x00u, 0xefu};
+    const uint8_t mode[LOTUS_LANTERN_FRAME_SIZE] =
+        {0x7eu, 0x05u, 0x03u, 0x87u, 0x03u, 0xffu, 0xffu, 0x00u, 0xefu};
+    const uint8_t speed[LOTUS_LANTERN_FRAME_SIZE] =
+        {0x7eu, 0x04u, 0x02u, 0x44u, 0xffu, 0xffu, 0xffu, 0x00u, 0xefu};
+    const uint8_t music_rgb[LOTUS_LANTERN_FRAME_SIZE] =
+        {0x7eu, 0x07u, 0x05u, 0x03u, 0xaau, 0xbbu, 0xccu, 0x20u, 0xefu};
+    const uint8_t mic_off[LOTUS_LANTERN_FRAME_SIZE] =
+        {0x7eu, 0x04u, 0x07u, 0x00u, 0xffu, 0xffu, 0xffu, 0x00u, 0xefu};
+
+    assert(lotus_lantern_apply_frame(&state, power_off, sizeof(power_off)) == LOTUS_LANTERN_OK);
+    assert(state.power == 0u);
+
+    assert(lotus_lantern_apply_frame(&state, power_on, sizeof(power_on)) == LOTUS_LANTERN_OK);
+    assert(state.power == 1u);
+
+    assert(lotus_lantern_apply_frame(&state, rgb, sizeof(rgb)) == LOTUS_LANTERN_OK);
+    assert(state.red == 0x11u);
+    assert(state.green == 0x22u);
+    assert(state.blue == 0x33u);
+
+    assert(lotus_lantern_apply_frame(&state, brightness, sizeof(brightness)) == LOTUS_LANTERN_OK);
+    assert(state.brightness == 0x55u);
+
+    assert(lotus_lantern_apply_frame(&state, mode, sizeof(mode)) == LOTUS_LANTERN_OK);
+    assert(state.mode == 7u);
+
+    assert(lotus_lantern_apply_frame(&state, speed, sizeof(speed)) == LOTUS_LANTERN_OK);
+    assert(state.speed == 0x44u);
+
+    assert(lotus_lantern_apply_frame(&state, music_rgb, sizeof(music_rgb)) == LOTUS_LANTERN_OK);
+    assert(state.red == 0xaau);
+    assert(state.green == 0xbbu);
+    assert(state.blue == 0xccu);
+    assert(state.audio_reactive == 1u);
+
+    assert(lotus_lantern_apply_frame(&state, mic_off, sizeof(mic_off)) == LOTUS_LANTERN_OK);
+    assert(state.audio_reactive == 0u);
+
+    uint8_t malformed[LOTUS_LANTERN_FRAME_SIZE];
+    memcpy(malformed, rgb, sizeof(malformed));
+    malformed[0] = 0u;
+    assert(lotus_lantern_apply_frame(&state, malformed, sizeof(malformed)) == LOTUS_LANTERN_ERR_FRAME);
+
+    const uint8_t unsupported[LOTUS_LANTERN_FRAME_SIZE] =
+        {0x7eu, 0x04u, 0x55u, 0u, 0u, 0u, 0u, 0u, 0xefu};
+    assert(lotus_lantern_apply_frame(&state, unsupported, sizeof(unsupported)) == LOTUS_LANTERN_ERR_UNSUPPORTED);
 }
 
 static void test_music_light_v3_confirmed_pin_map(void)
@@ -158,6 +221,7 @@ int main(void)
     test_ws2812b_grb_serialization();
     test_ws2812b_rejects_short_buffer();
     test_ws2812b_spi_encoding();
+    test_lotus_lantern_protocol();
     test_music_light_v3_confirmed_pin_map();
     test_control_defaults();
     test_control_packets();
