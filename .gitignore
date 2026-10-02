@@ -1,0 +1,13 @@
+/build/
+/cmake-build-*/
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
+*.d
+*.o
+*.a
+.compile_commands.json
+compile_commands.json
+.DS_Store

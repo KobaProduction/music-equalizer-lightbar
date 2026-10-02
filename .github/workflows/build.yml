@@ -1,0 +1,37 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gcc:
+    name: GCC / ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - st17h66b
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install GNU Arm Embedded toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes gcc-arm-none-eabi ninja-build
+
+      - name: Toolchain version
+        run: arm-none-eabi-gcc --version
+
+      - name: Configure
+        run: cmake --preset "${{ matrix.target }}"
+
+      - name: Build
+        run: cmake --build --preset "${{ matrix.target }}" --verbose
