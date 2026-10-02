@@ -73,7 +73,7 @@ Current rendered commands:
 - static RGB;
 - music-amplitude RGB frames.
 
-Mode and speed values are parsed and retained in the common control state, but local animation engines are not implemented yet.
+Mode and speed values are shared with the local control path. The bring-up renderer implements four local states: static color plus chase, rainbow and breathing effects. Non-zero third-party dynamic mode IDs map onto those three bring-up effects while preserving the received mode value in control state.
 
 The image boots dark by default.
 
@@ -95,3 +95,16 @@ Not yet validated:
 - P34 waveform and LED response under the full BLE image.
 
 Build validation must not be treated as hardware validation.
+
+
+## Physical-button integration
+
+The full BLE image polls the confirmed board buttons every 10 ms:
+
+- P11 Power, active-low with weak pull-up;
+- P3 Color/Bright, active-low with weak pull-up;
+- P7 Mode/Speed, active-low with weak pull-up.
+
+The button state machine uses 40 ms debounce, 600 ms long-press detection and 150 ms hold-repeat.
+
+Buttons and Lotus Lantern writes operate on the same control state and the same WS2812 renderer, so local and phone control do not maintain separate device modes.

@@ -91,3 +91,26 @@ BLE is mandatory for this target. External control uses a repository-owned trans
 8. validate microphone ADC path
 9. identify P2/P14/P18/P20 auxiliary circuitry if required by product behavior
 10. integrate and validate BLE radio/GATT
+
+
+## Local buttons
+
+Continuity/runtime confirmation:
+
+- P11 / Power: button shorts GPIO to GND when pressed;
+- P3 / Color/Bright: button shorts GPIO to GND when pressed;
+- P7 / Mode/Speed: button shorts GPIO to GND when pressed.
+
+The BLE bring-up firmware therefore configures all three as active-low inputs with weak internal pull-ups.
+
+Local behavior:
+
+- Power short press: toggle output power state;
+- Color/Bright short press: cycle the local static-color palette;
+- Color/Bright hold: step brightness, repeating while held;
+- Mode/Speed short press: cycle local modes 0..3;
+- Mode/Speed hold: step animation speed, repeating while held.
+
+Input polling is 10 ms, debounce is 40 ms, long-press threshold is 600 ms and hold repeat is 150 ms.
+
+All local actions update the same `melb_control_state_t` used by BLE commands.

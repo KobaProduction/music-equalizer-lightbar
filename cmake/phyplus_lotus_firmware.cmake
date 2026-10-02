@@ -37,6 +37,7 @@ function(melb_add_phyplus_lotus_firmware)
             "${CMAKE_CURRENT_SOURCE_DIR}/src/pvvx_lotus_sbp_profile.c"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/ble_control.c"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/lotus_lantern.c"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/local_controls.c"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/st17h66b_spi1.c"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/ws2812b.c"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/ws2812b_spi.c"

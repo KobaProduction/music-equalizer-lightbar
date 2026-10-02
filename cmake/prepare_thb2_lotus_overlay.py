@@ -88,6 +88,34 @@ def main() -> None:
         "(void)0;",
         "avoid name-setting flash write",
     )
+    header_path = output / "source" / "thb2_main.h"
+    header_text = header_path.read_text(encoding="utf-8")
+    header_text = replace_once(
+        header_text,
+        "#define LCD_TIMER_EVT         0x0400  // Timer related to display sleep and key long press feature expired",
+        "#define LCD_TIMER_EVT         0x0400  // Timer related to display sleep and key long press feature expired\n#define MELB_LOCAL_CONTROL_EVT  0x0800  // Music-Light-V3 local buttons/animation tick",
+        "reserve local-control OSAL event",
+    )
+    header_path.write_text(header_text, encoding="utf-8")
+
+    main_text = replace_once(
+        main_text,
+        '#include "sbp_profile.h"',
+        '#include "sbp_profile.h"\n\nextern void melb_lotus_local_init(void);\nextern void melb_lotus_local_tick(void);',
+        "declare local-control hooks",
+    )
+    main_text = replace_once(
+        main_text,
+        "SimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile",
+        "SimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile\n\tmelb_lotus_local_init();\n\tosal_start_reload_timer(simpleBLEPeripheral_TaskID, MELB_LOCAL_CONTROL_EVT, 10);",
+        "start local-control timer",
+    )
+    main_text = replace_once(
+        main_text,
+        "\tif(events & SBP_CMDDATA) {",
+        "\tif(events & MELB_LOCAL_CONTROL_EVT) {\n\t\tmelb_lotus_local_tick();\n\t\treturn(events ^ MELB_LOCAL_CONTROL_EVT);\n\t}\n\tif(events & SBP_CMDDATA) {",
+        "local-control event handler",
+    )
     main_path.write_text(main_text, encoding="utf-8")
 
     battery_path = output / "source" / "battery.c"
@@ -103,6 +131,8 @@ def main() -> None:
         "ble_control.h",
         "lotus_lantern.c",
         "lotus_lantern.h",
+        "local_controls.c",
+        "local_controls.h",
         "st17h66b_spi1.c",
         "st17h66b_spi1.h",
         "ws2812b.c",
@@ -126,6 +156,7 @@ def main() -> None:
         marker
         + "SRC_PRJ += ble_control.c\n"
         + "SRC_PRJ += lotus_lantern.c\n"
+        + "SRC_PRJ += local_controls.c\n"
         + "SRC_PRJ += st17h66b_spi1.c\n"
         + "SRC_PRJ += ws2812b.c\n"
         + "SRC_PRJ += ws2812b_spi.c\n"

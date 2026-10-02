@@ -1,6 +1,7 @@
 #include "ble_control.h"
 #include "board.h"
 #include "lotus_lantern.h"
+#include "local_controls.h"
 #include "ws2812b.h"
 #include "ws2812b_spi.h"
 
@@ -133,6 +134,74 @@ static void test_lotus_lantern_protocol(void)
     assert(lotus_lantern_apply_frame(&state, unsupported, sizeof(unsupported)) == LOTUS_LANTERN_ERR_UNSUPPORTED);
 }
 
+
+static void run_button_ticks(
+    melb_local_controls_t *controls,
+    melb_control_state_t *state,
+    bool power,
+    bool color,
+    bool mode,
+    unsigned ticks)
+{
+    for (unsigned i = 0; i < ticks; ++i) {
+        (void)melb_local_controls_tick(
+            controls, state, power, color, mode);
+    }
+}
+
+static void test_local_buttons(void)
+{
+    melb_local_controls_t controls;
+    melb_control_state_t state;
+
+    melb_control_state_init(&state);
+    melb_local_controls_init(&controls);
+
+    run_button_ticks(&controls, &state, true, false, false, 5u);
+    assert(state.power == 0u);
+    run_button_ticks(
+        &controls,
+        &state,
+        true,
+        false,
+        false,
+        MELB_LOCAL_BUTTON_LONG_TICKS + MELB_LOCAL_BUTTON_REPEAT_TICKS + 2u);
+    assert(state.power == 0u);
+    run_button_ticks(&controls, &state, false, false, false, 5u);
+    assert(state.power == 0u);
+
+    run_button_ticks(&controls, &state, false, true, false, 5u);
+    run_button_ticks(&controls, &state, false, false, false, 5u);
+    assert(state.green == 255u);
+    assert(state.red == 0u);
+    assert(state.mode == 0u);
+
+    const uint8_t old_brightness = state.brightness;
+    run_button_ticks(
+        &controls,
+        &state,
+        false,
+        true,
+        false,
+        MELB_LOCAL_BUTTON_LONG_TICKS + MELB_LOCAL_BUTTON_DEBOUNCE_TICKS + 1u);
+    assert(state.brightness != old_brightness);
+    run_button_ticks(&controls, &state, false, false, false, 5u);
+
+    run_button_ticks(&controls, &state, false, false, true, 5u);
+    run_button_ticks(&controls, &state, false, false, false, 5u);
+    assert(state.mode == 1u);
+
+    const uint8_t old_speed = state.speed;
+    run_button_ticks(
+        &controls,
+        &state,
+        false,
+        false,
+        true,
+        MELB_LOCAL_BUTTON_LONG_TICKS + MELB_LOCAL_BUTTON_DEBOUNCE_TICKS + 1u);
+    assert(state.speed != old_speed);
+}
+
 static void test_music_light_v3_confirmed_pin_map(void)
 {
     const melb_board_config_t *board = melb_board_config();
@@ -222,6 +291,7 @@ int main(void)
     test_ws2812b_rejects_short_buffer();
     test_ws2812b_spi_encoding();
     test_lotus_lantern_protocol();
+    test_local_buttons();
     test_music_light_v3_confirmed_pin_map();
     test_control_defaults();
     test_control_packets();
