@@ -53,10 +53,45 @@ A future ST17H66B BLE transport needs to:
 
 The original Lotus Lantern application uses GATT writes with response. Community-compatible clients also report that write-without-response works on many controllers.
 
+## Full ST17H66B bring-up target
+
+The repository now provides the preset:
+
+```sh
+cmake --preset music-light-v3-221101-lotus-ble
+cmake --build --preset music-light-v3-221101-lotus-ble
+```
+
+CMake fetches the pinned pvvx/THB2 revision, prepares an isolated build-tree overlay and builds a complete GCC BLE image using the upstream PHY62x2 startup, host/controller/radio stack and linker model.
+
+The overlay replaces the upstream application GATT profile with the project-owned Lotus Lantern `FFF0/FFF3` profile and includes the project-owned P34/SPI1 WS2812 renderer.
+
+Current rendered commands:
+
+- power;
+- brightness;
+- static RGB;
+- music-amplitude RGB frames.
+
+Mode and speed values are parsed and retained in the common control state, but local animation engines are not implemented yet.
+
+The image boots dark by default.
+
 ## Current validation boundary
 
-The protocol parser is host-tested.
+Validated in the terminal with Arm GNU Toolchain 13.2.1:
 
-The ST17H66B BLE radio/GATT backend is not yet implemented in this repository. Public PHY62x2 BLE examples prove that a GCC BLE build exists, but the available vendor SDK material carries a restrictive license. That code is therefore not vendored under the project MIT license.
+- FetchContent resolution of pinned THB2;
+- complete BLE host/controller/radio link;
+- `melb_lotus.elf`, `.hex`, `.bin`, and `.map` generation;
+- embedded device identity `ELK-BLEDOM-MELB`;
+- linked project Lotus parser and P34/SPI1 WS2812 implementation.
 
-Protocol compatibility and radio-stack integration remain separate acceptance levels.
+Not yet validated:
+
+- execution on the physical `Music-Light-V3-221101`;
+- BLE advertising/connection from the board;
+- GATT writes from the Lotus Lantern phone application;
+- P34 waveform and LED response under the full BLE image.
+
+Build validation must not be treated as hardware validation.
