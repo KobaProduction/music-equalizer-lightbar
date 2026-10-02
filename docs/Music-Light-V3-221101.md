@@ -29,10 +29,11 @@ These are physical observations only; no firmware function is assigned yet.
 | GPIO | Observation | Interpretation status |
 | --- | --- | --- |
 | **P2** | resistor network into a transistor stage, continuing into another transistor / diode-related network | unknown; do not assign yet |
+| **P14 / AIO_3** | reaches GND through a resistor | unknown; exact purpose and resistor value not yet recorded |
 | **P18 / AIO_7** | resistor network reaching a USB Type-C-related node / diode path | unknown; may be power/USB sensing, not confirmed |
 | **P20 / AIO_9** | reaches GND through a resistor | unknown; exact purpose and resistor value not yet recorded |
 
-The observations above must remain separate from confirmed functional mappings. In particular, the fact that P18/P20 have analog/PGA capabilities does not prove that this board uses them for audio.
+The observations above must remain separate from confirmed functional mappings. In particular, the fact that P14/P18/P20 have analog capabilities does not prove that this board uses them for audio or sensing.
 
 ## Microphone
 
@@ -88,5 +89,5 @@ BLE is mandatory for this target. External control uses a repository-owned trans
 6. validate GPIO output and WS2812B waveform
 7. determine button active levels/pulls
 8. validate microphone ADC path
-9. identify P2/P18/P20 auxiliary circuitry if required by product behavior
+9. identify P2/P14/P18/P20 auxiliary circuitry if required by product behavior
 10. integrate and validate BLE radio/GATT
