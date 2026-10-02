@@ -100,6 +100,29 @@ int st17h66b_spi1_init_p34(uint32_t baud_hz)
         divider = UINT32_C(65534);
     }
 
+    /*
+     * The DesignWare SSI baud divider is defined for even values. Select the
+     * nearest even divider using cross-multiplied frequency error.
+     */
+    if ((divider & 1u) != 0u) {
+        const uint32_t down = divider > 2u ? divider - 1u : 2u;
+        const uint32_t up = divider < UINT32_C(65534)
+            ? divider + 1u
+            : UINT32_C(65534);
+
+        const uint32_t down_product = baud_hz * down;
+        const uint32_t up_product = baud_hz * up;
+
+        const uint32_t down_error = pclk_hz > down_product
+            ? pclk_hz - down_product
+            : down_product - pclk_hz;
+        const uint32_t up_error = pclk_hz > up_product
+            ? pclk_hz - up_product
+            : up_product - pclk_hz;
+
+        divider = down_error <= up_error ? down : up;
+    }
+
     ST17H66B_SPI1_SSIEN = 0u;
 
     /*
