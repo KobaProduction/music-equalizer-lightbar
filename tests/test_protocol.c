@@ -1,4 +1,5 @@
 #include "ble_control.h"
+#include "board.h"
 #include "ws2812b.h"
 
 #include <assert.h>
@@ -24,6 +25,24 @@ static void test_ws2812b_rejects_short_buffer(void)
     uint8_t output[2] = {0};
 
     assert(ws2812b_serialize_grb(&pixel, 1u, output, sizeof(output)) == 0u);
+}
+
+static void test_music_light_v3_confirmed_pin_map(void)
+{
+    const melb_board_config_t *board = melb_board_config();
+
+    assert(strcmp(board->pcb_marking, "Music-Light-V3-221101") == 0);
+    assert(board->led_count == 32u);
+
+    assert(board->programming_uart_tx_pin == ST17H66B_PIN_P9);
+    assert(board->programming_uart_rx_pin == ST17H66B_PIN_P10);
+    assert(board->microphone_pin == ST17H66B_PIN_AIO4);
+
+    assert(ST17H66B_PACKAGE_PIN_P9 == 5u);
+    assert(ST17H66B_PACKAGE_PIN_P10 == 6u);
+    assert(ST17H66B_PACKAGE_PIN_P15 == 9u);
+
+    assert(board->led_data_pin == ST17H66B_PIN_UNMAPPED);
 }
 
 static void test_control_defaults(void)
@@ -90,6 +109,7 @@ int main(void)
 {
     test_ws2812b_grb_serialization();
     test_ws2812b_rejects_short_buffer();
+    test_music_light_v3_confirmed_pin_map();
     test_control_defaults();
     test_control_packets();
     test_control_rejects_invalid_packets();

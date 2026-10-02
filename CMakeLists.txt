@@ -12,6 +12,7 @@ if(MELB_HOST_TESTS)
     add_executable(melb_host_tests
         tests/test_protocol.c
         src/ble_control.c
+        src/board_music_light_v3_221101.c
         src/ws2812b.c
     )
 

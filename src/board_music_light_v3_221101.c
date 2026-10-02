@@ -7,11 +7,16 @@ static const melb_board_config_t board_config = {
     .led_count = 32u,
 
     /*
-     * These stay unmapped until continuity tracing establishes the actual
-     * Music-Light-V3-221101 connections.
+     * Confirmed by continuity tracing on the inspected PCB.
      */
-    .led_data_pin = MELB_PIN_UNMAPPED,
-    .microphone_pin = MELB_PIN_UNMAPPED,
+    .programming_uart_tx_pin = ST17H66B_PIN_P9,
+    .programming_uart_rx_pin = ST17H66B_PIN_P10,
+    .microphone_pin = ST17H66B_PIN_P15,
+
+    /*
+     * LED data remains the last required signal to trace.
+     */
+    .led_data_pin = ST17H66B_PIN_UNMAPPED,
 };
 
 const melb_board_config_t *melb_board_config(void)
