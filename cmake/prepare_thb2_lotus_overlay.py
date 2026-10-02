@@ -62,6 +62,16 @@ def main() -> None:
         "\t/* ADC intentionally disabled for BLE-only bring-up. */",
         "disable ADC init",
     )
+
+    io_start = low_level_main.index("#elif (DEVICE == DEVICE_KEY2)")
+    io_end = low_level_main.index("#elif (DEVICE == DEVICE_TH04)", io_start)
+    io_block = low_level_main[io_start:io_end]
+    io_block = io_block.replace("GPIO_PULL_UP_S", "GPIO_FLOATING")
+    io_block = io_block.replace("GPIO_PULL_UP", "GPIO_FLOATING")
+    io_block = io_block.replace("GPIO_PULL_DOWN", "GPIO_FLOATING")
+    low_level_main = (
+        low_level_main[:io_start] + io_block + low_level_main[io_end:]
+    )
     low_level_main_path.write_text(low_level_main, encoding="utf-8")
 
     main_path = output / "source" / "thb2_main.c"
