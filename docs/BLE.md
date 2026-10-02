@@ -68,7 +68,7 @@ Host tests cover:
 - default state;
 - WS2812B GRB serialization.
 
-BLE radio/GATT operation is not yet hardware-validated.
+A complete ST17H66B BLE bring-up image now links successfully against the fetched pvvx/THB2/Phyplus stack. BLE radio/GATT operation is still not hardware-validated on `Music-Light-V3-221101`.
 
 
 ## Mobile-app compatibility

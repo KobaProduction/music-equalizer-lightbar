@@ -56,8 +56,34 @@ This keeps three layers separate:
 2. project-owned GATT transport glue;
 3. project-owned Lotus Lantern command semantics.
 
+## Full Lotus Lantern firmware
+
+The full bring-up preset is:
+
+```sh
+cmake --preset music-light-v3-221101-lotus-ble
+cmake --build --preset music-light-v3-221101-lotus-ble
+```
+
+The build creates an isolated overlay of the pinned `bthome_phy6222` tree inside the CMake build directory. The upstream BLE host/controller/radio/startup/linker substrate remains third-party material under its original licenses.
+
+The overlay replaces the upstream application GATT profile with project-owned code and adds the project-owned Lotus Lantern parser and WS2812 SPI renderer.
+
+For safety on the target board, the overlay disables the inherited KEY2 button/LED/buzzer feature set, disables ADC initialization and replaces the inherited battery measurement policy with no-op hooks. It does not assume button active levels for `Music-Light-V3-221101`.
+
+Artifacts are produced under:
+
+`build/music-light-v3-221101-lotus-ble/thb2-lotus/build/`
+
+including `melb_lotus.elf`, `melb_lotus.hex`, `melb_lotus.bin`, and `melb_lotus.map`.
+
 ## Validation boundary
 
-`phyplus-profile-check` compiles the project-owned profile against the actual fetched Phyplus headers.
+Terminal validation has established:
 
-A full BLE firmware still additionally requires the stack/RF/startup/linker integration used by the pvvx GCC build. That is a separate validation level from the profile compile-check and from hardware radio validation.
+- project profile compilation against the fetched SDK;
+- complete BLE stack/RF/startup link;
+- packaged PHY62x2 multi-segment image generation;
+- normal project host/base/WS2812 builds remain independently buildable.
+
+Radio operation, Lotus Lantern interoperability and LED timing under the full BLE image still require hardware validation.
