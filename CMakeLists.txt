@@ -13,6 +13,8 @@ if(MELB_HOST_TESTS)
         tests/test_protocol.c
         src/ble_control.c
         src/board_music_light_v3_221101.c
+    src/lotus_lantern.c
+        src/lotus_lantern.c
         src/ws2812b.c
         src/ws2812b_spi.c
     )

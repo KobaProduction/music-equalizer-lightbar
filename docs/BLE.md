@@ -69,3 +69,10 @@ Host tests cover:
 - WS2812B GRB serialization.
 
 BLE radio/GATT operation is not yet hardware-validated.
+
+
+## Mobile-app compatibility
+
+The first compatibility target is Lotus Lantern / BLEDOM. The adapter is documented in [LOTUS_LANTERN.md](LOTUS_LANTERN.md).
+
+This compatibility layer does not replace the repository-owned control protocol. It translates third-party 9-byte command frames into `melb_control_state_t`, keeping BLE transport, application compatibility, and LED rendering separate.
