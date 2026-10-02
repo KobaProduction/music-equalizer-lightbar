@@ -14,6 +14,7 @@ if(MELB_HOST_TESTS)
         src/ble_control.c
         src/board_music_light_v3_221101.c
         src/ws2812b.c
+        src/ws2812b_spi.c
     )
 
     target_include_directories(melb_host_tests PRIVATE
@@ -36,6 +37,9 @@ enable_language(ASM)
 set(MELB_BOARD "music-light-v3-221101" CACHE STRING "Board target")
 set_property(CACHE MELB_BOARD PROPERTY STRINGS music-light-v3-221101)
 
+set(MELB_VARIANT "base" CACHE STRING "Firmware variant")
+set_property(CACHE MELB_VARIANT PROPERTY STRINGS base ws2812b-basic)
+
 if(MELB_BOARD STREQUAL "music-light-v3-221101")
     set(MELB_MCU "st17h66b")
     set(MELB_BOARD_MARKING "Music-Light-V3-221101")
@@ -43,15 +47,37 @@ else()
     message(FATAL_ERROR "Unsupported MELB_BOARD: ${MELB_BOARD}")
 endif()
 
-set(MELB_OUTPUT_BASENAME
-    "music-equalizer-lightbar-${MELB_BOARD_MARKING}-${MELB_MCU}")
-
-add_executable(melb_firmware
-    src/main.c
+set(MELB_FIRMWARE_SOURCES
     src/ble_control.c
     src/board_music_light_v3_221101.c
     src/ws2812b.c
     src/startup_st17h66b.S
+)
+
+if(MELB_VARIANT STREQUAL "base")
+    list(APPEND MELB_FIRMWARE_SOURCES
+        src/main.c
+    )
+    set(MELB_OUTPUT_BASENAME
+        "music-equalizer-lightbar-${MELB_BOARD_MARKING}-${MELB_MCU}")
+elseif(MELB_VARIANT STREQUAL "ws2812b-basic")
+    list(APPEND MELB_FIRMWARE_SOURCES
+        examples/ws2812b_basic_main.c
+        src/ws2812b_spi.c
+        src/st17h66b_spi1.c
+    )
+    set(MELB_OUTPUT_BASENAME
+        "music-equalizer-lightbar-${MELB_BOARD_MARKING}-${MELB_MCU}-ws2812b-basic")
+else()
+    message(FATAL_ERROR "Unsupported MELB_VARIANT: ${MELB_VARIANT}")
+endif()
+
+add_executable(melb_firmware
+    ${MELB_FIRMWARE_SOURCES}
+)
+
+target_include_directories(melb_firmware PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
 set_target_properties(melb_firmware PROPERTIES
@@ -65,6 +91,12 @@ target_compile_definitions(melb_firmware PRIVATE
     MELB_BOARD_MUSIC_LIGHT_V3_221101=1
     MELB_MCU_ST17H66B=1
 )
+
+if(MELB_VARIANT STREQUAL "ws2812b-basic")
+    target_compile_definitions(melb_firmware PRIVATE
+        MELB_VARIANT_WS2812B_BASIC=1
+    )
+endif()
 
 set(MELB_ARCH_FLAGS
     -mcpu=cortex-m0
@@ -98,6 +130,10 @@ configure_file(
     @ONLY
 )
 
+target_link_libraries(melb_firmware PRIVATE
+    gcc
+)
+
 target_link_options(melb_firmware PRIVATE
     ${MELB_ARCH_FLAGS}
     -nostartfiles
@@ -128,4 +164,5 @@ add_custom_command(TARGET melb_firmware POST_BUILD
 
 message(STATUS "MELB board: ${MELB_BOARD_MARKING}")
 message(STATUS "MELB MCU: ${MELB_MCU}")
+message(STATUS "MELB variant: ${MELB_VARIANT}")
 message(STATUS "Linked ST17H66B image is experimental until hardware validation")
