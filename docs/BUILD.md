@@ -21,9 +21,24 @@ cmake --preset music-light-v3-221101
 cmake --build --preset music-light-v3-221101
 ```
 
+Host-side protocol tests use a separate native preset and do not require the Arm toolchain.
+
+```sh
+cmake --preset host-tests
+cmake --build --preset host-tests
+ctest --preset host-tests
+```
+
 ## CI
 
-Every push and pull request builds all declared board presets and uploads a separate artifact bundle per board.
+Every push and pull request:
+
+- runs repository-owned protocol tests on the host;
+- builds all declared firmware board presets;
+- validates the ST17H66B BIN/HEX layout consistency;
+- uploads a separate artifact bundle per board.
+
+Each firmware bundle contains ELF, HEX, BIN, linker MAP and a JSON firmware manifest.
 
 ## Releases
 
@@ -39,11 +54,13 @@ The current ST17H66B builder proves:
 
 - C/ASM compilation with GNU Arm Embedded;
 - target-specific link using the repository linker script;
-- generation of ELF, Intel HEX, raw BIN and MAP artifacts.
+- generation of ELF, Intel HEX, raw BIN, MAP and manifest artifacts;
+- vector-table and image-origin consistency for the experimental layout;
+- HEX/BIN byte consistency.
 
 It does not yet prove:
 
 - that the inferred ST17H66B load/run memory layout is correct for this PCB;
-- that the ROM UART loader accepts the generated image without additional packaging;
-- that BLE initializes;
+- that the ROM UART loader accepts and executes the generated image on this board;
+- that BLE radio/GATT initializes;
 - that any board GPIO mapping is correct.
