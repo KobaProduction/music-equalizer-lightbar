@@ -42,6 +42,8 @@ function(melb_add_phyplus_profile_check)
         "${_phyplus_root}/components/profiles/Roles"
         "${_phyplus_root}/components/osal/include"
         "${_phyplus_root}/components/driver/log"
+        "${_phyplus_root}/components/driver/uart"
+        "${_phyplus_root}/components/driver/gpio"
     )
 
     target_compile_definitions(melb_phyplus_lotus_profile PRIVATE
@@ -51,6 +53,7 @@ function(melb_add_phyplus_profile_check)
         HOST_CONFIG=0x04
         MAX_NUM_LL_CONN=1
         DEF_GAPBOND_MGR_ENABLE=0
+        DEBUG_INFO=0
     )
 
     target_compile_options(melb_phyplus_lotus_profile PRIVATE
