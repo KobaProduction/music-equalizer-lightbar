@@ -31,14 +31,15 @@ jobs:
         run: ctest --preset host-tests
 
   gcc:
-    name: GCC / ${{ matrix.board }}
+    name: GCC / ${{ matrix.preset }}
     runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
       matrix:
-        board:
+        preset:
           - music-light-v3-221101
+          - music-light-v3-221101-ws2812b-basic
 
     steps:
       - name: Checkout
@@ -53,19 +54,19 @@ jobs:
         run: arm-none-eabi-gcc --version
 
       - name: Configure
-        run: cmake --preset "${{ matrix.board }}"
+        run: cmake --preset "${{ matrix.preset }}"
 
       - name: Build and verify image
-        run: cmake --build --preset "${{ matrix.board }}" --verbose
+        run: cmake --build --preset "${{ matrix.preset }}" --verbose
 
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-${{ matrix.board }}
+          name: firmware-${{ matrix.preset }}
           path: |
-            build/${{ matrix.board }}/*.elf
-            build/${{ matrix.board }}/*.hex
-            build/${{ matrix.board }}/*.bin
-            build/${{ matrix.board }}/*.map
-            build/${{ matrix.board }}/*.manifest.json
+            build/${{ matrix.preset }}/*.elf
+            build/${{ matrix.preset }}/*.hex
+            build/${{ matrix.preset }}/*.bin
+            build/${{ matrix.preset }}/*.map
+            build/${{ matrix.preset }}/*.manifest.json
           if-no-files-found: error

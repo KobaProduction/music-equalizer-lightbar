@@ -1,6 +1,7 @@
 #include "ble_control.h"
 #include "board.h"
 #include "ws2812b.h"
+#include "ws2812b_spi.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -25,6 +26,48 @@ static void test_ws2812b_rejects_short_buffer(void)
     uint8_t output[2] = {0};
 
     assert(ws2812b_serialize_grb(&pixel, 1u, output, sizeof(output)) == 0u);
+}
+
+static void test_ws2812b_spi_encoding(void)
+{
+    const ws2812b_pixel_t black = {0};
+    const ws2812b_pixel_t white = {
+        .red = 0xffu,
+        .green = 0xffu,
+        .blue = 0xffu,
+    };
+
+    uint8_t black_encoded[WS2812B_SPI_BYTES_PER_PIXEL + WS2812B_SPI_RESET_BYTES] = {0};
+    uint8_t white_encoded[WS2812B_SPI_BYTES_PER_PIXEL + WS2812B_SPI_RESET_BYTES] = {0};
+
+    assert(ws2812b_spi_encode(
+        &black, 1u, black_encoded, sizeof(black_encoded)) == sizeof(black_encoded));
+    assert(ws2812b_spi_encode(
+        &white, 1u, white_encoded, sizeof(white_encoded)) == sizeof(white_encoded));
+
+    const uint8_t zero_symbol_byte[3] = {0x92u, 0x49u, 0x24u};
+    const uint8_t one_symbol_byte[3] = {0xdbu, 0x6du, 0xb6u};
+
+    for (size_t component = 0u; component < 3u; ++component) {
+        assert(memcmp(
+            &black_encoded[component * 3u],
+            zero_symbol_byte,
+            sizeof(zero_symbol_byte)) == 0);
+
+        assert(memcmp(
+            &white_encoded[component * 3u],
+            one_symbol_byte,
+            sizeof(one_symbol_byte)) == 0);
+    }
+
+    for (size_t i = WS2812B_SPI_BYTES_PER_PIXEL;
+         i < sizeof(black_encoded);
+         ++i) {
+        assert(black_encoded[i] == 0u);
+        assert(white_encoded[i] == 0u);
+    }
+
+    assert(ws2812b_spi_encoded_size(32u) == 304u);
 }
 
 static void test_music_light_v3_confirmed_pin_map(void)
@@ -114,6 +157,7 @@ int main(void)
 {
     test_ws2812b_grb_serialization();
     test_ws2812b_rejects_short_buffer();
+    test_ws2812b_spi_encoding();
     test_music_light_v3_confirmed_pin_map();
     test_control_defaults();
     test_control_packets();

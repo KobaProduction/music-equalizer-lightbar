@@ -14,7 +14,20 @@
       "toolchainFile": "${sourceDir}/cmake/arm-none-eabi-gcc.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "MELB_BOARD": "music-light-v3-221101"
+        "MELB_BOARD": "music-light-v3-221101",
+        "MELB_VARIANT": "base"
+      }
+    },
+    {
+      "name": "music-light-v3-221101-ws2812b-basic",
+      "displayName": "Music-Light-V3-221101 / WS2812B basic bring-up",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/music-light-v3-221101-ws2812b-basic",
+      "toolchainFile": "${sourceDir}/cmake/arm-none-eabi-gcc.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "MELB_BOARD": "music-light-v3-221101",
+        "MELB_VARIANT": "ws2812b-basic"
       }
     },
     {
@@ -32,6 +45,10 @@
     {
       "name": "music-light-v3-221101",
       "configurePreset": "music-light-v3-221101"
+    },
+    {
+      "name": "music-light-v3-221101-ws2812b-basic",
+      "configurePreset": "music-light-v3-221101-ws2812b-basic"
     },
     {
       "name": "host-tests",
