@@ -34,15 +34,20 @@ static void test_music_light_v3_confirmed_pin_map(void)
     assert(strcmp(board->pcb_marking, "Music-Light-V3-221101") == 0);
     assert(board->led_count == 32u);
 
+    assert(board->led_data_pin == ST17H66B_PIN_P34);
+
     assert(board->programming_uart_tx_pin == ST17H66B_PIN_P9);
     assert(board->programming_uart_rx_pin == ST17H66B_PIN_P10);
+
+    assert(board->button_power_pin == ST17H66B_PIN_P11);
+    assert(board->button_color_bright_pin == ST17H66B_PIN_P3);
+    assert(board->button_mode_speed_pin == ST17H66B_PIN_P7);
+
     assert(board->microphone_pin == ST17H66B_PIN_AIO4);
 
     assert(ST17H66B_PACKAGE_PIN_P9 == 5u);
     assert(ST17H66B_PACKAGE_PIN_P10 == 6u);
     assert(ST17H66B_PACKAGE_PIN_P15 == 9u);
-
-    assert(board->led_data_pin == ST17H66B_PIN_UNMAPPED);
 }
 
 static void test_control_defaults(void)

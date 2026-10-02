@@ -9,14 +9,16 @@ static const melb_board_config_t board_config = {
     /*
      * Confirmed by continuity tracing on the inspected PCB.
      */
+    .led_data_pin = ST17H66B_PIN_P34,
+
     .programming_uart_tx_pin = ST17H66B_PIN_P9,
     .programming_uart_rx_pin = ST17H66B_PIN_P10,
-    .microphone_pin = ST17H66B_PIN_P15,
 
-    /*
-     * LED data remains the last required signal to trace.
-     */
-    .led_data_pin = ST17H66B_PIN_UNMAPPED,
+    .button_power_pin = ST17H66B_PIN_P11,
+    .button_color_bright_pin = ST17H66B_PIN_P3,
+    .button_mode_speed_pin = ST17H66B_PIN_P7,
+
+    .microphone_pin = ST17H66B_PIN_P15,
 };
 
 const melb_board_config_t *melb_board_config(void)

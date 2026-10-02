@@ -8,71 +8,86 @@ Exact PCB marking:
 
 This marking is the canonical board identity used by the repository.
 
-## Observed hardware
-
-| Function | Observation | Mapping |
-| --- | --- | --- |
-| MCU | ST17H66B, Arm Cortex-M0 | confirmed component marking |
-| RGB LEDs | 32 addressable LEDs | WS2812B-compatible protocol |
-| LED data | single serial data path expected | GPIO TBD |
-| Controls | reported functions/labels: Power, Color, Bright, Mode, Speed | physical grouping and GPIOs TBD |
-| Microphone | populated analog microphone path | **P15 / AIO_4**, continuity confirmed |
-| USB | USB Type-C connector populated | role beyond power not yet established |
-| Battery | battery pads populated; no battery in inspected unit | power path TBD |
-| Programming pads | GND, 3.3 V plus two signal pads | **P9 / P10**, continuity confirmed |
-
 ## Confirmed board pin map
 
-Only continuity-tested mappings belong in this table.
+The following mappings have been established by continuity tracing on the inspected PCB.
 
 | Signal/function | ST17H66B GPIO | TSSOP-16 pin | Status |
 | --- | --- | ---: | --- |
-| ROM UART TX (target → adapter RX) | **P9** | **5** | confirmed by continuity |
-| ROM UART RX (adapter TX → target) | **P10** | **6** | confirmed by continuity |
-| Microphone analog path | **P15 / AIO_4 / ADC4** | **9** | confirmed by continuity |
-| WS2812B data | TBD | TBD | tracing pending |
-| Power control | TBD | TBD | physical grouping/GPIO pending |
-| Color control | TBD | TBD | physical grouping/GPIO pending |
-| Bright control | TBD | TBD | physical grouping/GPIO pending |
-| Mode control | TBD | TBD | physical grouping/GPIO pending |
-| Speed control | TBD | TBD | physical grouping/GPIO pending |
+| WS2812B data | **P34** | **1** | confirmed |
+| Color/Bright button | **P3** | **3** | confirmed |
+| Mode/Speed button | **P7** | **4** | confirmed |
+| ROM UART TX (target → adapter RX) | **P9** | **5** | confirmed |
+| ROM UART RX (adapter TX → target) | **P10** | **6** | confirmed |
+| Power button | **P11 / AIO_0** | **7** | confirmed |
+| Microphone analog path | **P15 / AIO_4 / ADC4** | **9** | confirmed |
 
-P15/AIO_4 is multifunctional: the SoC pin supports GPIO, ADC4 and MICBIAS functionality. The PCB continuity confirms the microphone network reaches this pin; the exact analog operating mode will be established during ADC/microphone bring-up.
+## Unresolved / observed nets
+
+These are physical observations only; no firmware function is assigned yet.
+
+| GPIO | Observation | Interpretation status |
+| --- | --- | --- |
+| **P2** | resistor network into a transistor stage, continuing into another transistor / diode-related network | unknown; do not assign yet |
+| **P14 / AIO_3** | reaches GND through a resistor | unknown; exact purpose and resistor value not yet recorded |
+| **P18 / AIO_7** | resistor network reaching a USB Type-C-related node / diode path | unknown; may be power/USB sensing, not confirmed |
+| **P20 / AIO_9** | reaches GND through a resistor | unknown; exact purpose and resistor value not yet recorded |
+
+The observations above must remain separate from confirmed functional mappings. In particular, the fact that P14/P18/P20 have analog capabilities does not prove that this board uses them for audio or sensing.
+
+## Microphone
+
+Continuity confirms the microphone network reaches **P15 / AIO_4 / ADC4**.
+
+P15 is multifunctional and also supports MICBIAS. The exact analog configuration and bias topology will be verified during powered ADC/microphone bring-up.
 
 ## Programming pads
 
-The previously unidentified signal pads are now resolved at the MCU:
+Confirmed:
 
-- target TX: P9, TSSOP-16 package pin 5;
-- target RX: P10, TSSOP-16 package pin 6.
+- target TX: **P9**, package pin 5;
+- target RX: **P10**, package pin 6.
 
-USB-UART wiring therefore follows:
+USB-UART wiring:
 
 - adapter RX ← target P9/TX;
 - adapter TX → target P10/RX;
 - common GND;
 - 3.3 V logic/power domain.
 
-The next programming step remains read-only: enter ROM UART and preserve the complete original Flash before any erase/write operation.
+The first ROM-UART operation remains read-only: preserve the complete original Flash before any erase/write operation.
 
 ## LED chain
 
-The board contains 32 addressable RGB LEDs and uses the WS2812B-compatible 800 kbit/s, 24-bit-per-pixel GRB protocol.
+The board contains 32 addressable RGB LEDs using the WS2812B-compatible 800 kbit/s, 24-bit-per-pixel GRB protocol.
 
-The repository implements the protocol-level GRB frame representation. Precise waveform generation will be bound as soon as the final LED-data GPIO is continuity-confirmed.
+The LED data GPIO is now confirmed as **P34 / package pin 1**.
+
+This removes the main hardware blocker for a first LED bring-up firmware. The remaining implementation work is the ST17H66B GPIO/timing backend required to generate the WS2812B waveform.
+
+## Controls
+
+Confirmed control pins:
+
+- Power → **P11**
+- Color/Bright → **P3**
+- Mode/Speed → **P7**
+
+The electrical active level and pull configuration are not yet assumed; those can be established either by static resistor tracing or by powered observation.
 
 ## BLE
 
-BLE is mandatory for this target. External control uses a repository-owned transport-independent command protocol; the ST17H66B radio/GATT backend remains the next BLE implementation milestone.
+BLE is mandatory for this target. External control uses a repository-owned transport-independent command protocol; the ST17H66B radio/GATT backend remains a separate implementation milestone.
 
-## Bring-up sequence
+## Bring-up status
 
-1. **programming pads P9/P10 — confirmed;**
-2. **microphone path P15/AIO_4 — confirmed;**
-3. trace the remaining WS2812B data GPIO;
-4. preserve original Flash through ROM UART;
-5. validate the repository-generated bring-up image without erasing the backup;
-6. validate one GPIO output and WS2812B chain;
-7. validate controls;
-8. validate microphone ADC path;
-9. integrate and validate BLE radio/GATT.
+1. **P9/P10 programming UART — confirmed**
+2. **P15 microphone path — confirmed**
+3. **P34 WS2812B data — confirmed**
+4. **P11 / P3 / P7 controls — confirmed**
+5. preserve original Flash through ROM UART
+6. validate GPIO output and WS2812B waveform
+7. determine button active levels/pulls
+8. validate microphone ADC path
+9. identify P2/P14/P18/P20 auxiliary circuitry if required by product behavior
+10. integrate and validate BLE radio/GATT
