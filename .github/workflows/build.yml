@@ -55,7 +55,7 @@ jobs:
       - name: Configure
         run: cmake --preset "${{ matrix.board }}"
 
-      - name: Build
+      - name: Build and verify image
         run: cmake --build --preset "${{ matrix.board }}" --verbose
 
       - name: Upload firmware artifacts
@@ -67,4 +67,5 @@ jobs:
             build/${{ matrix.board }}/*.hex
             build/${{ matrix.board }}/*.bin
             build/${{ matrix.board }}/*.map
+            build/${{ matrix.board }}/*.manifest.json
           if-no-files-found: error

@@ -2,6 +2,21 @@
 
 This file records external sources used as technical evidence during bring-up. A reference here does not imply that its source code has been copied into this repository.
 
+## ST17H66B2 datasheet mirror
+
+Reference:
+
+https://github.com/vadimkozhin/st17h66-OHS-tag/blob/main/docs/ST17H66B2_BLE_SoC_Datasheet_v1.1.2.pdf
+
+Used as evidence for:
+
+- TSSOP16 package pin mapping;
+- ADC-capable pins;
+- micbias and PGA-capable pins;
+- power, crystal and RF package pins.
+
+The datasheet is referenced, not copied into this repository.
+
 ## pvvx/THB2
 
 Repository:
@@ -11,8 +26,9 @@ https://github.com/pvvx/THB2
 Used as evidence for:
 
 - ST17H66B support in the PHY62x2 ecosystem;
-- ROM UART programming workflow;
+- ROM UART programming workflow and handshake;
 - P09/P10 UART convention on known ST17H66B hardware;
+- HEX writer run address and Flash storage defaults;
 - GCC-based BLE host/controller build feasibility;
 - larger SRAM/XIP firmware layout patterns.
 
@@ -65,8 +81,11 @@ The following are project-owned implementations in this repository:
 - CMake target/build logic;
 - minimal Cortex-M0 reset/vector startup;
 - experimental linker script;
+- image-consistency validation script;
+- firmware manifest generation;
 - board metadata;
 - WS2812B protocol serialization;
+- BLE application control protocol and host tests;
 - CI/release workflows.
 
 They are not claimed to be vendor reference implementations and remain subject to hardware validation.

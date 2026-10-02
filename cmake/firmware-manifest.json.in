@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "project": "music-equalizer-lightbar",
+  "board_target": "@MELB_BOARD@",
+  "pcb_marking": "@MELB_BOARD_MARKING@",
+  "mcu": "@MELB_MCU@",
+  "validation": "experimental-bringup",
+  "image": {
+    "run_address": "0x1FFF1838",
+    "format": "intel-hex",
+    "artifact": "@MELB_OUTPUT_BASENAME@.hex"
+  },
+  "rom_uart_reference": {
+    "initial_baud": 9600,
+    "handshake": "UXTDWU",
+    "boot_info_flash_offset": "0x00002000",
+    "default_payload_flash_offset": "0x00005000"
+  },
+  "hardware_validation": false
+}
