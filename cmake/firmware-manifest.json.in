@@ -4,6 +4,7 @@
   "board_target": "@MELB_BOARD@",
   "pcb_marking": "@MELB_BOARD_MARKING@",
   "mcu": "@MELB_MCU@",
+  "variant": "@MELB_VARIANT@",
   "validation": "experimental-bringup",
   "image": {
     "run_address": "0x1FFF1838",
