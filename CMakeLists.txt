@@ -130,6 +130,10 @@ configure_file(
     @ONLY
 )
 
+target_link_libraries(melb_firmware PRIVATE
+    gcc
+)
+
 target_link_options(melb_firmware PRIVATE
     ${MELB_ARCH_FLAGS}
     -nostartfiles
