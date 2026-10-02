@@ -41,6 +41,16 @@ def main() -> None:
     config = config[:key2_start] + key2 + config[key2_end:]
     config_path.write_text(config, encoding="utf-8")
 
+    low_level_main_path = output / "source" / "main.c"
+    low_level_main = low_level_main_path.read_text(encoding="utf-8")
+    low_level_main = replace_once(
+        low_level_main,
+        "\thal_adc_init();",
+        "\t/* ADC intentionally disabled for BLE-only bring-up. */",
+        "disable ADC init",
+    )
+    low_level_main_path.write_text(low_level_main, encoding="utf-8")
+
     main_path = output / "source" / "thb2_main.c"
     main_text = main_path.read_text(encoding="utf-8")
     main_text = replace_once(
