@@ -75,3 +75,10 @@ The following are project-owned implementations in this repository:
 - CI/release workflows.
 
 They are not claimed to be vendor reference implementations and remain subject to hardware validation.
+
+
+## External Phyplus BLE build dependency
+
+The repository can compile-check its project-owned Lotus Lantern GATT profile against an externally supplied PHY62x2 SDK tree using `MELB_PHYPLUS_SDK_ROOT`.
+
+No Phyplus SDK source is committed or fetched automatically. The external tree retains its original vendor license. See [PHYPLUS_BLE.md](PHYPLUS_BLE.md).
