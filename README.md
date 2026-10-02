@@ -30,6 +30,7 @@ Requirements:
 
 - CMake 3.24 or newer
 - Ninja
+- Python 3
 - GNU Arm Embedded toolchain providing `arm-none-eabi-gcc`
 
 Build the current board:
@@ -39,14 +40,25 @@ cmake --preset music-light-v3-221101
 cmake --build --preset music-light-v3-221101
 ```
 
+Run host-side protocol tests:
+
+```sh
+cmake --preset host-tests
+cmake --build --preset host-tests
+ctest --preset host-tests
+```
+
 Outputs are produced under `build/music-light-v3-221101/`:
 
 - `music-equalizer-lightbar-Music-Light-V3-221101-st17h66b.elf`
 - `music-equalizer-lightbar-Music-Light-V3-221101-st17h66b.hex`
 - `music-equalizer-lightbar-Music-Light-V3-221101-st17h66b.bin`
 - linker map file
+- firmware manifest JSON
 
-The ST17H66B startup/linker contract is currently an experimental bring-up implementation inferred from public reverse-engineering evidence. A green CI build does **not** mean the image has been hardware-validated.
+The build also verifies the internal ST17H66B image/vector/HEX contract before succeeding.
+
+The ST17H66B startup/linker contract is still an experimental bring-up implementation inferred from public reverse-engineering evidence. A green CI build does **not** mean the image has been hardware-validated.
 
 ## Repository layout
 
@@ -55,6 +67,7 @@ The ST17H66B startup/linker contract is currently an experimental bring-up imple
 ├── src/                  Firmware and target source
 ├── cmake/                Cross-toolchain/build support
 ├── docs/                 Board, MCU and build notes
+├── tests/                Host-side protocol tests
 ├── .github/workflows/    CI and release automation
 ├── CMakeLists.txt
 └── CMakePresets.json
@@ -64,10 +77,10 @@ The source tree remains deliberately shallow during bring-up.
 
 ## Current milestones
 
-1. reproducible GCC linked image and CI artifacts;
+1. reproducible GCC linked image, image validation and CI artifacts;
 2. preserve/read the original `Music-Light-V3-221101` flash;
 3. verify UART ROM programming and the startup/linker contract on hardware;
-4. integrate a legally distributable GCC BLE stack;
+4. integrate a legally distributable GCC BLE radio/GATT backend;
 5. map and drive the 32-LED WS2812B chain;
 6. map controls and microphone/ADC path;
 7. add additional board/MCU targets.
