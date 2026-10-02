@@ -86,6 +86,16 @@ set(MELB_HEX_FILE
     "${CMAKE_CURRENT_BINARY_DIR}/${MELB_OUTPUT_BASENAME}.hex")
 set(MELB_BIN_FILE
     "${CMAKE_CURRENT_BINARY_DIR}/${MELB_OUTPUT_BASENAME}.bin")
+set(MELB_MANIFEST_FILE
+    "${CMAKE_CURRENT_BINARY_DIR}/${MELB_OUTPUT_BASENAME}.manifest.json")
+
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/firmware-manifest.json.in"
+    "${MELB_MANIFEST_FILE}"
+    @ONLY
+)
 
 target_link_options(melb_firmware PRIVATE
     ${MELB_ARCH_FLAGS}
@@ -102,11 +112,16 @@ add_custom_command(TARGET melb_firmware POST_BUILD
             "$<TARGET_FILE:melb_firmware>" "${MELB_HEX_FILE}"
     COMMAND "${CMAKE_OBJCOPY}" -O binary
             "$<TARGET_FILE:melb_firmware>" "${MELB_BIN_FILE}"
+    COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/cmake/verify_st17h66b_image.py"
+            --bin "${MELB_BIN_FILE}"
+            --hex "${MELB_HEX_FILE}"
     COMMAND "${CMAKE_SIZE}" "$<TARGET_FILE:melb_firmware>"
     BYPRODUCTS
         "${MELB_HEX_FILE}"
         "${MELB_BIN_FILE}"
         "${MELB_MAP_FILE}"
+        "${MELB_MANIFEST_FILE}"
     VERBATIM
 )
 

@@ -11,8 +11,9 @@ https://github.com/pvvx/THB2
 Used as evidence for:
 
 - ST17H66B support in the PHY62x2 ecosystem;
-- ROM UART programming workflow;
+- ROM UART programming workflow and handshake;
 - P09/P10 UART convention on known ST17H66B hardware;
+- HEX writer run-address and Flash-storage model;
 - GCC-based BLE host/controller build feasibility;
 - larger SRAM/XIP firmware layout patterns.
 
@@ -37,6 +38,7 @@ Used as evidence for:
 
 - successful `arm-none-eabi-gcc` execution on ST17H66-class hardware;
 - the small early bring-up address model around `0x1FFF1838` and `0x1FFF8000`;
+- P9/P10 UART usage;
 - ROM-UART-based development workflows.
 
 No source from that repository is treated as project-owned code here. The repository currently does not expose a root license file, so source reuse is not assumed to be permitted.
@@ -65,8 +67,11 @@ The following are project-owned implementations in this repository:
 - CMake target/build logic;
 - minimal Cortex-M0 reset/vector startup;
 - experimental linker script;
+- image-consistency validation script;
+- firmware manifest generation;
 - board metadata;
 - WS2812B protocol serialization;
+- application BLE control packet parser/state;
 - CI/release workflows.
 
 They are not claimed to be vendor reference implementations and remain subject to hardware validation.
