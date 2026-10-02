@@ -1,0 +1,27 @@
+{
+  "version": 5,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "st17h66b",
+      "displayName": "ST17H66B (GNU Arm Embedded)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/st17h66b",
+      "toolchainFile": "${sourceDir}/cmake/arm-none-eabi-gcc.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "MELB_TARGET": "st17h66b"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "st17h66b",
+      "configurePreset": "st17h66b"
+    }
+  ]
+}
