@@ -31,6 +31,17 @@
       }
     },
     {
+      "name": "phyplus-profile-check",
+      "displayName": "Fetched THB2 / Phyplus BLE profile compile-check",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/phyplus-profile-check",
+      "toolchainFile": "${sourceDir}/cmake/arm-none-eabi-gcc.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "MELB_PHYPLUS_PROFILE_CHECK": "ON"
+      }
+    },
+    {
       "name": "host-tests",
       "displayName": "Host protocol tests",
       "generator": "Ninja",
@@ -49,6 +60,11 @@
     {
       "name": "music-light-v3-221101-ws2812b-basic",
       "configurePreset": "music-light-v3-221101-ws2812b-basic"
+    },
+    {
+      "name": "phyplus-profile-check",
+      "configurePreset": "phyplus-profile-check",
+      "targets": ["phyplus-ble-profile-check"]
     },
     {
       "name": "host-tests",

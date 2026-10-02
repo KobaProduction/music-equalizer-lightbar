@@ -2,34 +2,43 @@
 
 ## Purpose
 
-The ST17H66B BLE backend follows the proven GCC path used by pvvx/THB2 while keeping the Phyplus SDK outside this MIT-licensed repository.
+The ST17H66B BLE backend follows the proven GCC path used by pvvx/THB2.
 
-The external SDK is not downloaded, copied, relicensed, or redistributed by the project build.
+CMake fetches a pinned THB2 revision into the build tree with `FetchContent`; users do not need to provide a local SDK path. The fetched third-party tree keeps its original upstream licenses and is not copied into this repository.
 
-## Reference tree
+Pinned upstream revision:
 
-The currently tested reference layout is the SDK tree inside:
+`48db5245d235aef57cfdf5fcc58ec74fa753d89c`
 
-https://github.com/pvvx/THB2/tree/master/bthome_phy6222/SDK
+Repository:
 
-pvvx/THB2 demonstrates a complete GCC build of the PHY62x2 BLE host, controller, GATT/GAP profiles, radio driver, startup and ROM-symbol integration.
+https://github.com/pvvx/THB2
 
-Its root license explicitly separates permissive project source from Phyplus SDK material carrying the vendor SDK license. This repository therefore treats that SDK tree as an external dependency.
+The SDK is resolved from `bthome_phy6222/SDK` inside that fetched tree.
 
-## Configure the profile compile-check
-
-Point CMake at an existing SDK checkout:
+## Build the profile check
 
 ```sh
-cmake -S . -B build/phyplus-profile \
-  -G Ninja \
-  -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi-gcc.cmake \
-  -DMELB_PHYPLUS_PROFILE_CHECK=ON \
-  -DMELB_PHYPLUS_SDK_ROOT=/path/to/THB2/bthome_phy6222/SDK
-cmake --build build/phyplus-profile --target phyplus-ble-profile-check
+cmake --preset phyplus-profile-check
+cmake --build --preset phyplus-profile-check
 ```
 
-The check compiles the project-owned Lotus Lantern GATT profile against the real Phyplus headers. It intentionally does not link or redistribute the vendor BLE stack.
+The configure step automatically downloads the pinned THB2 revision when it is not already present in the CMake FetchContent cache.
+
+For an offline/local-development override, standard CMake FetchContent behavior may be used with `FETCHCONTENT_SOURCE_DIR_THB2`; this is optional and is not required for the normal build.
+
+## License boundary
+
+The THB2 root license separates permissive project/source material from Phyplus SDK material with separate vendor terms.
+
+The project therefore:
+
+- pins and fetches the upstream repository rather than vendoring the SDK;
+- preserves the upstream source and license files unchanged in the build tree;
+- does not relicense SDK sources as part of this project's MIT code;
+- keeps project-owned GATT/application code in this repository.
+
+Users remain responsible for the terms applicable to the fetched Phyplus SDK.
 
 ## Project-owned GATT profile
 
@@ -43,22 +52,12 @@ A successful write is passed through `lotus_lantern_apply_frame()`. The backend 
 
 This keeps three layers separate:
 
-1. Phyplus BLE stack / radio: external SDK;
-2. GATT transport glue: project-owned;
-3. Lotus Lantern command semantics: project-owned.
+1. fetched Phyplus BLE stack / radio;
+2. project-owned GATT transport glue;
+3. project-owned Lotus Lantern command semantics.
 
-## Next integration step
+## Validation boundary
 
-The next target is a complete `lotus-lantern-ble` firmware variant linked against the external SDK and its `bb_rom_sym_m0.gcc` symbol map.
+`phyplus-profile-check` compiles the project-owned profile against the actual fetched Phyplus headers.
 
-That target must establish:
-
-- PHY62x2 clock/RF/heap initialization;
-- OSAL task initialization;
-- GAP peripheral role;
-- advertising name `ELK-BLEDOM-MELB`;
-- GATT service registration;
-- state changes routed to the WS2812 renderer;
-- local P11/P3/P7 button events routed to the same state model.
-
-Build success will still be distinct from radio/hardware validation.
+A full BLE firmware still additionally requires the stack/RF/startup/linker integration used by the pvvx GCC build. That is a separate validation level from the profile compile-check and from hardware radio validation.
