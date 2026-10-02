@@ -57,6 +57,14 @@ def main() -> None:
     )
     main_path.write_text(main_text, encoding="utf-8")
 
+    battery_path = output / "source" / "battery.c"
+    battery_path.write_text(
+        '#include "battery.h"\n\n'
+        'void batt_start_measure(void) {}\n'
+        'void check_battery(void) {}\n',
+        encoding="utf-8",
+    )
+
     copies = [
         "ble_control.c",
         "ble_control.h",
