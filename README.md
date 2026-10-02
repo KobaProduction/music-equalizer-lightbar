@@ -13,7 +13,7 @@ Current board facts:
 - MCU: ST17H66B, Arm Cortex-M0
 - light source: 32 addressable RGB LEDs
 - LED protocol: WS2812B-compatible one-wire data stream
-- controls: three physical button positions providing Power, Color/Bright, and Mode/Speed functions
+- controls: reported functions/labels include Power, Color, Bright, Mode, and Speed; exact physical button grouping and GPIO mapping are being traced
 - microphone: populated; MCU connection is being traced
 - USB Type-C: populated
 - battery pads: populated on the PCB; battery is absent on the inspected unit
@@ -69,7 +69,7 @@ The source tree remains deliberately shallow during bring-up.
 3. verify UART ROM programming and the startup/linker contract on hardware;
 4. integrate a legally distributable GCC BLE stack;
 5. map and drive the 32-LED WS2812B chain;
-6. map buttons and microphone/ADC path;
+6. map controls and microphone/ADC path;
 7. add additional board/MCU targets.
 
 ## Licensing

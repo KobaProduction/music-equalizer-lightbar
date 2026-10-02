@@ -11,9 +11,6 @@ static const melb_board_config_t board_config = {
      * Music-Light-V3-221101 connections.
      */
     .led_data_pin = MELB_PIN_UNMAPPED,
-    .button_power_pin = MELB_PIN_UNMAPPED,
-    .button_color_bright_pin = MELB_PIN_UNMAPPED,
-    .button_mode_speed_pin = MELB_PIN_UNMAPPED,
     .microphone_pin = MELB_PIN_UNMAPPED,
 };
 

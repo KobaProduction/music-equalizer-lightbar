@@ -10,9 +10,6 @@ typedef struct {
     const char *mcu_name;
     uint8_t led_count;
     uint8_t led_data_pin;
-    uint8_t button_power_pin;
-    uint8_t button_color_bright_pin;
-    uint8_t button_mode_speed_pin;
     uint8_t microphone_pin;
 } melb_board_config_t;
 

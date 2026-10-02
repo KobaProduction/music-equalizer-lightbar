@@ -23,11 +23,13 @@ cmake --build --preset music-light-v3-221101
 
 ## CI
 
-Every push and pull request builds all declared board presets in the workflow matrix and uploads the linked artifacts.
+Every push and pull request builds all declared board presets and uploads a separate artifact bundle per board.
 
 ## Releases
 
-Tags matching `v*` build all declared boards and publish a GitHub prerelease with their firmware artifacts.
+Tags matching `v*` run the same board matrix. Each board build uploads its own artifacts, then one publish job downloads all board bundles and creates a single GitHub prerelease for the tag.
+
+This separation is required for multi-target releases: board matrix jobs must never race to create the same release.
 
 Releases remain prereleases while the current target has not passed hardware validation. Removing that restriction is a product-readiness decision, not a build-system decision.
 

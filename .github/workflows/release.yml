@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   firmware:
-    name: Release / ${{ matrix.board }}
+    name: Build / ${{ matrix.board }}
     runs-on: ubuntu-24.04
 
     strategy:
@@ -34,8 +34,38 @@ jobs:
       - name: Build
         run: cmake --build --preset "${{ matrix.board }}" --verbose
 
-      - name: Publish prerelease artifacts
+      - name: Upload board artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.board }}
+          path: |
+            build/${{ matrix.board }}/*.elf
+            build/${{ matrix.board }}/*.hex
+            build/${{ matrix.board }}/*.bin
+            build/${{ matrix.board }}/*.map
+          if-no-files-found: error
+
+  publish:
+    name: Publish prerelease
+    runs-on: ubuntu-24.04
+    needs:
+      - firmware
+
+    steps:
+      - name: Download all board artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: firmware-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish GitHub prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}"             --repo "${GITHUB_REPOSITORY}"             --title "${GITHUB_REF_NAME}"             --generate-notes             --prerelease             build/"${{ matrix.board }}"/*.elf             build/"${{ matrix.board }}"/*.hex             build/"${{ matrix.board }}"/*.bin             build/"${{ matrix.board }}"/*.map
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --prerelease \
+            dist/*
