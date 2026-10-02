@@ -32,6 +32,19 @@ def main() -> None:
     key2_start = config.index("#elif DEVICE == DEVICE_KEY2")
     key2_end = config.index("#elif DEVICE == DEVICE_TH04", key2_start)
     key2 = config[key2_start:key2_end]
+
+    services_start = key2.index("#if OTA_TYPE == OTA_TYPE_BOOT")
+    services_end = key2.index("#define ADC_PIN_USE_OUT", services_start)
+    key2 = (
+        key2[:services_start]
+        + "#define DEV_SERVICES (OTA_TYPE)\n\n"
+        + key2[services_end:]
+    )
+
+    gpio_start = key2.index("#define GPIO_KEY")
+    model_start = key2.index("#define DEF_MODEL_NUMBER_STR", gpio_start)
+    key2 = key2[:gpio_start] + key2[model_start:]
+
     key2 = replace_once(
         key2,
         '#define DEF_MODEL_NUMBER_STR\t\t"KEY"',
