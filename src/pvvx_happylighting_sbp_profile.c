@@ -37,6 +37,7 @@ static int renderer_ready;
 static melb_local_controls_t local_controls;
 static uint8_t animation_phase;
 static uint8_t animation_ticks;
+static uint32_t render_count;
 
 static CONST uint8 happy_service_uuid[ATT_BT_UUID_SIZE] = {
     LO_UINT16(HAPPY_LIGHTING_SERVICE_UUID16),
@@ -248,10 +249,14 @@ static void render_state(void)
 
     if (encoded == sizeof(spi_frame)) {
         const int spi_result = st17h66b_spi1_write(spi_frame, encoded);
+        ++render_count;
         if (spi_result != 0) {
             renderer_ready = 0;
             LOG("MELB: WS2812 SPI timeout/error=%d; renderer disabled, BLE kept alive\n",
                 spi_result);
+        } else if ((render_count % 50u) == 0u) {
+            LOG("MELB: render frame=%lu spi=0 mode=%02x power=%u\n",
+                (unsigned long)render_count, control_state.mode, control_state.power);
         }
     }
 }

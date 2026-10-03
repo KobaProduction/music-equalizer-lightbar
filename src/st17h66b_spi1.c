@@ -154,6 +154,15 @@ int st17h66b_spi1_init_p34(uint32_t baud_hz)
         return -3;
     }
 
+    /*
+     * Keep SPI1 awake continuously during WS2812 hardware bring-up.
+     * The LED renderer is periodic and the direct SSI backend has not yet
+     * been hardware-validated across PHY6222 sleep transitions.
+     */
+    if (hal_pwrmgr_lock(MOD_SPI1) != 0) {
+        return -4;
+    }
+
     return 0;
 }
 
@@ -196,10 +205,6 @@ int st17h66b_spi1_write(const uint8_t *data, size_t size)
         return -1;
     }
 
-    if (hal_pwrmgr_lock(MOD_SPI1) != 0) {
-        return -4;
-    }
-
     int result = st17h66b_spi1_write_once(data, size);
 
     if (result != 0 && s_spi1_baud_hz != 0u) {
@@ -209,6 +214,5 @@ int st17h66b_spi1_write(const uint8_t *data, size_t size)
         }
     }
 
-    (void)hal_pwrmgr_unlock(MOD_SPI1);
     return result;
 }
