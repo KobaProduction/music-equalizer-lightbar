@@ -1,4 +1,5 @@
 #include "local_controls.h"
+#include "happylighting.h"
 
 #include <stddef.h>
 
@@ -19,11 +20,18 @@ static const melb_palette_color_t palette[] = {
     {255u, 0u, 0u},
     {0u, 255u, 0u},
     {0u, 0u, 255u},
-    {255u, 255u, 255u},
     {0u, 255u, 255u},
     {255u, 0u, 255u},
     {255u, 255u, 0u},
     {255u, 96u, 16u},
+    {255u, 180u, 96u},
+};
+
+static const uint8_t local_modes[] = {
+    0x25u, /* seven-color cross fade */
+    0x2Du, /* red/green cross fade */
+    0x30u, /* seven-color strobe */
+    0x38u, /* seven-color jump */
 };
 
 static melb_button_event_t update_button(
@@ -50,15 +58,15 @@ static melb_button_event_t update_button(
                 button->repeat_ticks = 0u;
                 button->long_active = 0u;
                 return MELB_BUTTON_EVENT_PRESS;
-            } else {
-                const uint8_t was_long = button->long_active;
-                button->hold_ticks = 0u;
-                button->repeat_ticks = 0u;
-                button->long_active = 0u;
+            }
 
-                if (was_long == 0u) {
-                    return MELB_BUTTON_EVENT_SHORT;
-                }
+            const uint8_t was_long = button->long_active;
+            button->hold_ticks = 0u;
+            button->repeat_ticks = 0u;
+            button->long_active = 0u;
+
+            if (was_long == 0u) {
+                return MELB_BUTTON_EVENT_SHORT;
             }
         }
 
@@ -91,9 +99,18 @@ static melb_button_event_t update_button(
     return MELB_BUTTON_EVENT_NONE;
 }
 
-static uint8_t stepped_value(uint8_t value)
+static uint8_t stepped_brightness(uint8_t value)
 {
-    if (value >= 224u) {
+    if (value < 32u || value >= 192u) {
+        return 32u;
+    }
+
+    return (uint8_t)(value + 32u);
+}
+
+static uint8_t stepped_speed(uint8_t value)
+{
+    if (value < 16u || value >= 224u) {
         return 32u;
     }
 
@@ -143,20 +160,23 @@ bool melb_local_controls_tick(
         state->red = color.red;
         state->green = color.green;
         state->blue = color.blue;
-        state->mode = 0u;
+        state->mode = HAPPY_LIGHTING_MODE_STATIC;
         state->audio_reactive = 0u;
         changed = true;
     } else if (color_event == MELB_BUTTON_EVENT_LONG_STEP) {
-        state->brightness = stepped_value(state->brightness);
+        state->brightness = stepped_brightness(state->brightness);
         changed = true;
     }
 
     if (mode_event == MELB_BUTTON_EVENT_SHORT) {
-        state->mode = (uint8_t)((state->mode + 1u) % 4u);
+        controls->mode_index =
+            (uint8_t)((controls->mode_index + 1u)
+                % (sizeof(local_modes) / sizeof(local_modes[0])));
+        state->mode = local_modes[controls->mode_index];
         state->audio_reactive = 0u;
         changed = true;
     } else if (mode_event == MELB_BUTTON_EVENT_LONG_STEP) {
-        state->speed = stepped_value(state->speed);
+        state->speed = stepped_speed(state->speed);
         changed = true;
     }
 

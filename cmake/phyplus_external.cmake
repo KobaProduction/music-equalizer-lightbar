@@ -46,13 +46,13 @@ endfunction()
 function(melb_add_phyplus_profile_check)
     melb_resolve_phyplus_sdk(_phyplus_root)
 
-    add_library(melb_phyplus_lotus_profile OBJECT
+    add_library(melb_phyplus_happylighting_profile OBJECT
         "${CMAKE_CURRENT_SOURCE_DIR}/src/ble_control.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/lotus_lantern.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/phyplus_lotus_gatt.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/happylighting.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/phyplus_happylighting_gatt.c"
     )
 
-    target_include_directories(melb_phyplus_lotus_profile PRIVATE
+    target_include_directories(melb_phyplus_happylighting_profile PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
         "${_phyplus_root}/misc"
         "${_phyplus_root}/misc/CMSIS/include"
@@ -70,7 +70,7 @@ function(melb_add_phyplus_profile_check)
         "${_phyplus_root}/components/driver/gpio"
     )
 
-    target_compile_definitions(melb_phyplus_lotus_profile PRIVATE
+    target_compile_definitions(melb_phyplus_happylighting_profile PRIVATE
         __GCC
         ARMCM0
         PHY_MCU_TYPE=MCU_BUMBEE_M0
@@ -80,7 +80,7 @@ function(melb_add_phyplus_profile_check)
         DEBUG_INFO=0
     )
 
-    target_compile_options(melb_phyplus_lotus_profile PRIVATE
+    target_compile_options(melb_phyplus_happylighting_profile PRIVATE
         -mcpu=cortex-m0
         -mthumb
         -ffreestanding
@@ -92,7 +92,7 @@ function(melb_add_phyplus_profile_check)
     )
 
     add_custom_target(phyplus-ble-profile-check
-        DEPENDS melb_phyplus_lotus_profile)
+        DEPENDS melb_phyplus_happylighting_profile)
 
     message(STATUS
         "Phyplus BLE profile compile-check uses fetched SDK: ${_phyplus_root}")

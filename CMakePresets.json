@@ -42,14 +42,14 @@
       }
     },
     {
-      "name": "music-light-v3-221101-lotus-ble",
-      "displayName": "Music-Light-V3-221101 / Lotus Lantern BLE",
+      "name": "music-light-v3-221101-happylighting-ble",
+      "displayName": "Music-Light-V3-221101 / HappyLighting Triones BLE",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/music-light-v3-221101-lotus-ble",
+      "binaryDir": "${sourceDir}/build/music-light-v3-221101-happylighting-ble",
       "toolchainFile": "${sourceDir}/cmake/arm-none-eabi-gcc.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "MELB_PHYPLUS_LOTUS_FIRMWARE": "ON"
+        "MELB_PHYPLUS_HAPPYLIGHTING_FIRMWARE": "ON"
       }
     },
     {
@@ -80,10 +80,10 @@
       ]
     },
     {
-      "name": "music-light-v3-221101-lotus-ble",
-      "configurePreset": "music-light-v3-221101-lotus-ble",
+      "name": "music-light-v3-221101-happylighting-ble",
+      "configurePreset": "music-light-v3-221101-happylighting-ble",
       "targets": [
-        "melb-lotus-ble"
+        "melb-happylighting-ble"
       ]
     },
     {

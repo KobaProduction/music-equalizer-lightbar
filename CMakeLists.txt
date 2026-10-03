@@ -6,7 +6,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(MELB_HOST_TESTS "Build host-side protocol tests instead of firmware" OFF)
 option(MELB_PHYPLUS_PROFILE_CHECK "Compile project BLE profile against fetched Phyplus SDK" OFF)
-option(MELB_PHYPLUS_LOTUS_FIRMWARE "Build full Lotus Lantern BLE firmware using fetched THB2" OFF)
+option(MELB_PHYPLUS_HAPPYLIGHTING_FIRMWARE "Build full HappyLighting/Triones BLE firmware using fetched THB2" OFF)
 
 if(MELB_PHYPLUS_PROFILE_CHECK)
     enable_language(ASM)
@@ -15,10 +15,10 @@ if(MELB_PHYPLUS_PROFILE_CHECK)
     return()
 endif()
 
-if(MELB_PHYPLUS_LOTUS_FIRMWARE)
+if(MELB_PHYPLUS_HAPPYLIGHTING_FIRMWARE)
     enable_language(ASM)
-    include(cmake/phyplus_lotus_firmware.cmake)
-    melb_add_phyplus_lotus_firmware()
+    include(cmake/phyplus_happylighting_firmware.cmake)
+    melb_add_phyplus_happylighting_firmware()
     return()
 endif()
 
@@ -29,7 +29,7 @@ if(MELB_HOST_TESTS)
         tests/test_protocol.c
         src/ble_control.c
         src/board_music_light_v3_221101.c
-        src/lotus_lantern.c
+        src/happylighting.c
         src/local_controls.c
         src/ws2812b.c
         src/ws2812b_spi.c
@@ -68,7 +68,7 @@ endif()
 set(MELB_FIRMWARE_SOURCES
     src/ble_control.c
     src/board_music_light_v3_221101.c
-    src/lotus_lantern.c
+    src/happylighting.c
     src/ws2812b.c
     src/startup_st17h66b.S
 )

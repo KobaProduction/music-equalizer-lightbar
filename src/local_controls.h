@@ -26,6 +26,7 @@ typedef struct {
     melb_local_button_t color_bright;
     melb_local_button_t mode_speed;
     uint8_t palette_index;
+    uint8_t mode_index;
 } melb_local_controls_t;
 
 void melb_local_controls_init(melb_local_controls_t *controls);
