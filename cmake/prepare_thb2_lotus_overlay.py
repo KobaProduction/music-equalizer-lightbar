@@ -48,7 +48,7 @@ def main() -> None:
     key2 = replace_once(
         key2,
         '#define DEF_MODEL_NUMBER_STR\t\t"KEY"',
-        '#define DEF_MODEL_NUMBER_STR\t\t"ELK-BLEDOM-MELB"',
+        '#define DEF_MODEL_NUMBER_STR\t\t"ELK-BLEDOM"',
         "KEY2 model name",
     )
     config = config[:key2_start] + key2 + config[key2_end:]
@@ -97,7 +97,7 @@ def main() -> None:
     main_text = replace_once(
         main_text,
         "\t\tset_mac();",
-        "\t\tset_mac();\n\t\tLOG(\"MELB: BLE name=%s\\n\", &gapRole_ScanRspData[2]);\n\t\tLOG(\"MELB: adv interval units=%u\\n\", (unsigned)(cfg.advertising_interval * 100));",
+        "\t\tset_mac();\n\t\tgapRole_AdvertDataLen = 7;\n\t\tgapRole_AdvertData[0] = 2;\n\t\tgapRole_AdvertData[1] = GAP_ADTYPE_FLAGS;\n\t\tgapRole_AdvertData[2] = GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED;\n\t\tgapRole_AdvertData[3] = 3;\n\t\tgapRole_AdvertData[4] = GAP_ADTYPE_16BIT_COMPLETE;\n\t\tgapRole_AdvertData[5] = LO_UINT16(LOTUS_LANTERN_SERVICE_UUID16);\n\t\tgapRole_AdvertData[6] = HI_UINT16(LOTUS_LANTERN_SERVICE_UUID16);\n\t\tLOG(\"MELB: BLE name=%s\\n\", &gapRole_ScanRspData[2]);\n\t\tLOG(\"MELB: adv interval units=%u\\n\", (unsigned)(cfg.advertising_interval * 100));\n\t\tLOG(\"MELB: adv data=%02x %02x %02x %02x %02x %02x %02x\\n\", gapRole_AdvertData[0], gapRole_AdvertData[1], gapRole_AdvertData[2], gapRole_AdvertData[3], gapRole_AdvertData[4], gapRole_AdvertData[5], gapRole_AdvertData[6]);",
         "log BLE identity",
     )
     main_text = replace_once(
@@ -125,7 +125,7 @@ def main() -> None:
     main_text = replace_once(
         main_text,
         '#include "sbp_profile.h"',
-        '#include "sbp_profile.h"\n\nextern void melb_lotus_local_init(void);\nextern void melb_lotus_local_tick(void);',
+        '#include "sbp_profile.h"\n#include "lotus_lantern.h"\n\nextern void melb_lotus_local_init(void);\nextern void melb_lotus_local_tick(void);',
         "declare local-control hooks",
     )
     main_text = replace_once(
