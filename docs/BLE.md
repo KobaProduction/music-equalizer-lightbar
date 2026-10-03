@@ -73,6 +73,8 @@ A complete ST17H66B BLE bring-up image now links successfully against the fetche
 
 ## Mobile-app compatibility
 
-The first compatibility target is Lotus Lantern / BLEDOM. The adapter is documented in [LOTUS_LANTERN.md](LOTUS_LANTERN.md).
+The mobile compatibility target is HappyLighting / Triones.
 
-This compatibility layer does not replace the repository-owned control protocol. It translates third-party 9-byte command frames into `melb_control_state_t`, keeping BLE transport, application compatibility, and LED rendering separate.
+The adapter uses service 0xFFD5, write characteristic 0xFFD9, and read/notify characteristic 0xFFD4. Protocol commands are translated into the repository-owned melb_control_state_t, so BLE transport, application compatibility and LED rendering remain separate.
+
+See HAPPYLIGHTING.md for the exact wire protocol, dynamic modes, boot behavior and physical-button mapping.

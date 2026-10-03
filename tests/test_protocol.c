@@ -1,6 +1,6 @@
 #include "ble_control.h"
 #include "board.h"
-#include "lotus_lantern.h"
+#include "happylighting.h"
 #include "local_controls.h"
 #include "ws2812b.h"
 #include "ws2812b_spi.h"
@@ -73,65 +73,66 @@ static void test_ws2812b_spi_encoding(void)
 }
 
 
-static void test_lotus_lantern_protocol(void)
+static void test_happylighting_protocol(void)
 {
     melb_control_state_t state = {0};
+    uint8_t status[HAPPY_LIGHTING_STATUS_SIZE] = {0};
+
     melb_control_state_init(&state);
 
-    const uint8_t power_off[LOTUS_LANTERN_FRAME_SIZE] =
-        {0x7eu, 0x04u, 0x04u, 0x00u, 0x00u, 0x00u, 0xffu, 0x00u, 0xefu};
-    const uint8_t power_on[LOTUS_LANTERN_FRAME_SIZE] =
-        {0x7eu, 0x04u, 0x04u, 0x01u, 0x00u, 0x01u, 0xffu, 0x00u, 0xefu};
-    const uint8_t rgb[LOTUS_LANTERN_FRAME_SIZE] =
-        {0x7eu, 0x07u, 0x05u, 0x03u, 0x11u, 0x22u, 0x33u, 0x10u, 0xefu};
-    const uint8_t brightness[LOTUS_LANTERN_FRAME_SIZE] =
-        {0x7eu, 0x04u, 0x01u, 0x55u, 0x00u, 0xffu, 0xffu, 0x00u, 0xefu};
-    const uint8_t mode[LOTUS_LANTERN_FRAME_SIZE] =
-        {0x7eu, 0x05u, 0x03u, 0x87u, 0x03u, 0xffu, 0xffu, 0x00u, 0xefu};
-    const uint8_t speed[LOTUS_LANTERN_FRAME_SIZE] =
-        {0x7eu, 0x04u, 0x02u, 0x44u, 0xffu, 0xffu, 0xffu, 0x00u, 0xefu};
-    const uint8_t music_rgb[LOTUS_LANTERN_FRAME_SIZE] =
-        {0x7eu, 0x07u, 0x05u, 0x03u, 0xaau, 0xbbu, 0xccu, 0x20u, 0xefu};
-    const uint8_t mic_off[LOTUS_LANTERN_FRAME_SIZE] =
-        {0x7eu, 0x04u, 0x07u, 0x00u, 0xffu, 0xffu, 0xffu, 0x00u, 0xefu};
+    const uint8_t power_off[] = {0xCCu, 0x24u, 0x33u};
+    const uint8_t power_on[] = {0xCCu, 0x23u, 0x33u};
+    const uint8_t rgb[] = {0x56u, 0x11u, 0x22u, 0x33u, 0x00u, 0xF0u, 0xAAu};
+    const uint8_t white[] = {0x56u, 0xDEu, 0xADu, 0xFFu, 0x40u, 0x0Fu, 0xAAu};
+    const uint8_t effect[] = {0xBBu, 0x2Du, 0x1Fu, 0x44u};
+    const uint8_t status_request[] = {0xEFu, 0x01u, 0x77u};
 
-    assert(lotus_lantern_apply_frame(&state, power_off, sizeof(power_off)) == LOTUS_LANTERN_OK);
+    assert(happy_lighting_apply_command(&state, power_off, sizeof(power_off)) == HAPPY_LIGHTING_OK);
     assert(state.power == 0u);
 
-    assert(lotus_lantern_apply_frame(&state, power_on, sizeof(power_on)) == LOTUS_LANTERN_OK);
+    assert(happy_lighting_apply_command(&state, power_on, sizeof(power_on)) == HAPPY_LIGHTING_OK);
     assert(state.power == 1u);
 
-    assert(lotus_lantern_apply_frame(&state, rgb, sizeof(rgb)) == LOTUS_LANTERN_OK);
+    assert(happy_lighting_apply_command(&state, rgb, sizeof(rgb)) == HAPPY_LIGHTING_OK);
     assert(state.red == 0x11u);
     assert(state.green == 0x22u);
     assert(state.blue == 0x33u);
+    assert(state.mode == HAPPY_LIGHTING_MODE_STATIC);
+    assert(state.brightness == 255u);
 
-    assert(lotus_lantern_apply_frame(&state, brightness, sizeof(brightness)) == LOTUS_LANTERN_OK);
-    assert(state.brightness == 0x55u);
+    assert(happy_lighting_apply_command(&state, white, sizeof(white)) == HAPPY_LIGHTING_OK);
+    assert(state.red == 0x40u);
+    assert(state.green == 0x40u);
+    assert(state.blue == 0x40u);
+    assert(state.mode == HAPPY_LIGHTING_MODE_STATIC);
 
-    assert(lotus_lantern_apply_frame(&state, mode, sizeof(mode)) == LOTUS_LANTERN_OK);
-    assert(state.mode == 7u);
+    assert(happy_lighting_apply_command(&state, effect, sizeof(effect)) == HAPPY_LIGHTING_OK);
+    assert(state.mode == 0x2Du);
+    assert(state.speed == 0x1Fu);
 
-    assert(lotus_lantern_apply_frame(&state, speed, sizeof(speed)) == LOTUS_LANTERN_OK);
-    assert(state.speed == 0x44u);
+    assert(happy_lighting_apply_command(
+        &state, status_request, sizeof(status_request)) == HAPPY_LIGHTING_STATUS_REQUEST);
 
-    assert(lotus_lantern_apply_frame(&state, music_rgb, sizeof(music_rgb)) == LOTUS_LANTERN_OK);
-    assert(state.red == 0xaau);
-    assert(state.green == 0xbbu);
-    assert(state.blue == 0xccu);
-    assert(state.audio_reactive == 1u);
+    assert(happy_lighting_build_status(&state, status, sizeof(status)) == sizeof(status));
+    assert(status[0] == 0x66u);
+    assert(status[2] == 0x23u);
+    assert(status[3] == 0x2Du);
+    assert(status[5] == 0x1Fu);
+    assert(status[6] == 0x40u);
+    assert(status[7] == 0x40u);
+    assert(status[8] == 0x40u);
+    assert(status[11] == 0x99u);
 
-    assert(lotus_lantern_apply_frame(&state, mic_off, sizeof(mic_off)) == LOTUS_LANTERN_OK);
-    assert(state.audio_reactive == 0u);
+    const uint8_t bad_power[] = {0xCCu, 0x99u, 0x33u};
+    const uint8_t bad_effect[] = {0xBBu, 0x10u, 0x20u, 0x44u};
+    const uint8_t unknown[] = {0x01u, 0x02u};
 
-    uint8_t malformed[LOTUS_LANTERN_FRAME_SIZE];
-    memcpy(malformed, rgb, sizeof(malformed));
-    malformed[0] = 0u;
-    assert(lotus_lantern_apply_frame(&state, malformed, sizeof(malformed)) == LOTUS_LANTERN_ERR_FRAME);
-
-    const uint8_t unsupported[LOTUS_LANTERN_FRAME_SIZE] =
-        {0x7eu, 0x04u, 0x55u, 0u, 0u, 0u, 0u, 0u, 0xefu};
-    assert(lotus_lantern_apply_frame(&state, unsupported, sizeof(unsupported)) == LOTUS_LANTERN_ERR_UNSUPPORTED);
+    assert(happy_lighting_apply_command(
+        &state, bad_power, sizeof(bad_power)) == HAPPY_LIGHTING_ERR_FRAME);
+    assert(happy_lighting_apply_command(
+        &state, bad_effect, sizeof(bad_effect)) == HAPPY_LIGHTING_ERR_FRAME);
+    assert(happy_lighting_apply_command(
+        &state, unknown, sizeof(unknown)) == HAPPY_LIGHTING_ERR_UNSUPPORTED);
 }
 
 
@@ -174,7 +175,7 @@ static void test_local_buttons(void)
     run_button_ticks(&controls, &state, false, false, false, 5u);
     assert(state.green == 255u);
     assert(state.red == 0u);
-    assert(state.mode == 0u);
+    assert(state.mode == HAPPY_LIGHTING_MODE_STATIC);
 
     const uint8_t old_brightness = state.brightness;
     run_button_ticks(
@@ -189,7 +190,7 @@ static void test_local_buttons(void)
 
     run_button_ticks(&controls, &state, false, false, true, 5u);
     run_button_ticks(&controls, &state, false, false, false, 5u);
-    assert(state.mode == 1u);
+    assert(state.mode == 0x2Du);
 
     const uint8_t old_speed = state.speed;
     run_button_ticks(
@@ -232,12 +233,12 @@ static void test_control_defaults(void)
     melb_control_state_init(&state);
 
     assert(state.power == 1u);
-    assert(state.brightness == 255u);
+    assert(state.brightness == 128u);
     assert(state.red == 255u);
-    assert(state.green == 255u);
-    assert(state.blue == 255u);
-    assert(state.mode == 0u);
-    assert(state.speed == 128u);
+    assert(state.green == 64u);
+    assert(state.blue == 0u);
+    assert(state.mode == 0x25u);
+    assert(state.speed == 24u);
     assert(state.audio_reactive == 0u);
 }
 
@@ -290,7 +291,7 @@ int main(void)
     test_ws2812b_grb_serialization();
     test_ws2812b_rejects_short_buffer();
     test_ws2812b_spi_encoding();
-    test_lotus_lantern_protocol();
+    test_happylighting_protocol();
     test_local_buttons();
     test_music_light_v3_confirmed_pin_map();
     test_control_defaults();

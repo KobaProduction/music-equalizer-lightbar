@@ -79,13 +79,23 @@ They are not claimed to be vendor reference implementations and remain subject t
 
 ## External Phyplus BLE build dependency
 
-The repository compile-checks its project-owned Lotus Lantern GATT profile against a pinned pvvx/THB2 revision fetched by CMake FetchContent.
+The repository compile-checks its project-owned HappyLighting/Triones GATT profile against a pinned pvvx/THB2 revision fetched by CMake FetchContent.
 
 The Phyplus SDK is not committed into this repository and retains its upstream vendor license inside the fetched build tree. See [PHYPLUS_BLE.md](PHYPLUS_BLE.md).
 
 
 ## Full BLE bring-up substrate
 
-The `music-light-v3-221101-lotus-ble` target prepares a temporary build-tree overlay from the pinned pvvx/THB2 `bthome_phy6222` source.
+The `music-light-v3-221101-happylighting-ble` target prepares a temporary build-tree overlay from the pinned pvvx/THB2 `bthome_phy6222` source.
 
-The overlay is not committed as project-owned source. Upstream pvvx source and Phyplus SDK material retain their respective licenses. Project-owned replacements/additions are limited to the Lotus Lantern GATT adapter, protocol/state code, board renderer and overlay preparation logic.
+The overlay is not committed as project-owned source. Upstream pvvx source and Phyplus SDK material retain their respective licenses. Project-owned replacements/additions are limited to the HappyLighting/Triones GATT adapter, protocol/state code, board renderer and overlay preparation logic.
+
+
+## HappyLighting / Triones protocol references
+
+The HappyLighting/Triones compatibility contract is based on independently documented/reverse-engineered behavior, cross-checked against:
+
+- https://github.com/Dazaike/lighting
+- https://github.com/sysofwan/ha-triones
+
+No source from those clients/integrations is copied into the firmware. The repository-owned implementation uses the documented UUIDs and wire-level command semantics for interoperability.

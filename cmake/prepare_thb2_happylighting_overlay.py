@@ -48,7 +48,7 @@ def main() -> None:
     key2 = replace_once(
         key2,
         '#define DEF_MODEL_NUMBER_STR\t\t"KEY"',
-        '#define DEF_MODEL_NUMBER_STR\t\t"ELK-BLEDOM"',
+        '#define DEF_MODEL_NUMBER_STR\t\t"Triones"',
         "KEY2 model name",
     )
     config = config[:key2_start] + key2 + config[key2_end:]
@@ -97,7 +97,7 @@ def main() -> None:
     main_text = replace_once(
         main_text,
         "\t\tset_mac();",
-        "\t\tset_mac();\n\t\tgapRole_AdvertDataLen = 7;\n\t\tgapRole_AdvertData[0] = 2;\n\t\tgapRole_AdvertData[1] = GAP_ADTYPE_FLAGS;\n\t\tgapRole_AdvertData[2] = GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED;\n\t\tgapRole_AdvertData[3] = 3;\n\t\tgapRole_AdvertData[4] = GAP_ADTYPE_16BIT_COMPLETE;\n\t\tgapRole_AdvertData[5] = 0x12; /* HID service UUID low byte, matching real ELK-BLEDOM advertising */\n\t\tgapRole_AdvertData[6] = 0x18;\n\t\tLOG(\"MELB: BLE name=%s\\n\", &gapRole_ScanRspData[2]);\n\t\tLOG(\"MELB: adv interval units=%u\\n\", (unsigned)(cfg.advertising_interval * 100));\n\t\tLOG(\"MELB: adv data=%02x %02x %02x %02x %02x %02x %02x\\n\", gapRole_AdvertData[0], gapRole_AdvertData[1], gapRole_AdvertData[2], gapRole_AdvertData[3], gapRole_AdvertData[4], gapRole_AdvertData[5], gapRole_AdvertData[6]);",
+        "\t\tset_mac();\n\t\tgapRole_AdvertDataLen = 7;\n\t\tgapRole_AdvertData[0] = 2;\n\t\tgapRole_AdvertData[1] = GAP_ADTYPE_FLAGS;\n\t\tgapRole_AdvertData[2] = GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED;\n\t\tgapRole_AdvertData[3] = 3;\n\t\tgapRole_AdvertData[4] = GAP_ADTYPE_16BIT_COMPLETE;\n\t\tgapRole_AdvertData[5] = LO_UINT16(HAPPY_LIGHTING_SERVICE_UUID16);\n\t\tgapRole_AdvertData[6] = HI_UINT16(HAPPY_LIGHTING_SERVICE_UUID16);\n\t\tLOG(\"MELB: BLE name=%s\\n\", &gapRole_ScanRspData[2]);\n\t\tLOG(\"MELB: adv interval units=%u\\n\", (unsigned)(cfg.advertising_interval * 100));\n\t\tLOG(\"MELB: adv data=%02x %02x %02x %02x %02x %02x %02x\\n\", gapRole_AdvertData[0], gapRole_AdvertData[1], gapRole_AdvertData[2], gapRole_AdvertData[3], gapRole_AdvertData[4], gapRole_AdvertData[5], gapRole_AdvertData[6]);",
         "log BLE identity",
     )
     main_text = replace_once(
@@ -125,19 +125,19 @@ def main() -> None:
     main_text = replace_once(
         main_text,
         '#include "sbp_profile.h"',
-        '#include "sbp_profile.h"\n#include "lotus_lantern.h"\n\nextern void melb_lotus_local_init(void);\nextern void melb_lotus_local_tick(void);',
+        '#include "sbp_profile.h"\n#include "happylighting.h"\n\nextern void melb_happylighting_local_init(void);\nextern void melb_happylighting_local_tick(void);',
         "declare local-control hooks",
     )
     main_text = replace_once(
         main_text,
         "SimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile",
-        "LOG(\"MELB: register Lotus FFF0/FFF3\\n\");\n\tSimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile\n\tmelb_lotus_local_init();\n\tosal_start_reload_timer(simpleBLEPeripheral_TaskID, MELB_LOCAL_CONTROL_EVT, 10);",
+        "LOG(\"MELB: register HappyLighting FFD5/FFD9/FFD4\\n\");\n\tSimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile\n\tmelb_happylighting_local_init();\n\tosal_start_reload_timer(simpleBLEPeripheral_TaskID, MELB_LOCAL_CONTROL_EVT, 10);",
         "start local-control timer",
     )
     main_text = replace_once(
         main_text,
         "\tif(events & SBP_CMDDATA) {",
-        "\tif(events & MELB_LOCAL_CONTROL_EVT) {\n\t\tmelb_lotus_local_tick();\n\t\treturn(events ^ MELB_LOCAL_CONTROL_EVT);\n\t}\n\tif(events & SBP_CMDDATA) {",
+        "\tif(events & MELB_LOCAL_CONTROL_EVT) {\n\t\tmelb_happylighting_local_tick();\n\t\treturn(events ^ MELB_LOCAL_CONTROL_EVT);\n\t}\n\tif(events & SBP_CMDDATA) {",
         "local-control event handler",
     )
     main_path.write_text(main_text, encoding="utf-8")
@@ -169,8 +169,8 @@ def main() -> None:
     copies = [
         "ble_control.c",
         "ble_control.h",
-        "lotus_lantern.c",
-        "lotus_lantern.h",
+        "happylighting.c",
+        "happylighting.h",
         "local_controls.c",
         "local_controls.h",
         "st17h66b_spi1.c",
@@ -185,7 +185,7 @@ def main() -> None:
         shutil.copy2(project / "src" / name, output / "source" / name)
 
     shutil.copy2(
-        project / "src" / "pvvx_lotus_sbp_profile.c",
+        project / "src" / "pvvx_happylighting_sbp_profile.c",
         output / "source" / "sbp_profile.c",
     )
 
@@ -201,7 +201,7 @@ def main() -> None:
     additions = (
         marker
         + "SRC_PRJ += ble_control.c\n"
-        + "SRC_PRJ += lotus_lantern.c\n"
+        + "SRC_PRJ += happylighting.c\n"
         + "SRC_PRJ += local_controls.c\n"
         + "SRC_PRJ += st17h66b_spi1.c\n"
         + "SRC_PRJ += ws2812b.c\n"
