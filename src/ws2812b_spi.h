@@ -11,10 +11,11 @@
 #define WS2812B_SPI_BYTES_PER_PIXEL UINT8_C(9)
 
 /*
- * 16 zero bytes at 2.4 MHz hold the data line low for ~53.3 us,
- * satisfying the WS2812B reset/latch interval.
+ * Keep the line low for a conservative reset/latch interval. 96 zero bytes
+ * are about 320 us at 2.4 MHz and about 288 us at 2.667 MHz, covering newer
+ * WS2812B revisions that specify a reset interval greater than 280 us.
  */
-#define WS2812B_SPI_RESET_BYTES UINT8_C(16)
+#define WS2812B_SPI_RESET_BYTES UINT8_C(96)
 
 size_t ws2812b_spi_encoded_size(size_t pixel_count);
 
