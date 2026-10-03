@@ -336,10 +336,11 @@ void melb_happylighting_local_tick(void)
     }
 
     /*
-     * Hardware bring-up pattern: one pure primary per second at deliberately
-     * low brightness. Power remains live so BLE/P11 can prove black frames.
+     * Hardware bring-up pattern: RED/OFF/GREEN/OFF/BLUE/OFF at 500 ms per
+     * phase and deliberately low brightness. This makes both color ordering
+     * and black-frame/latch behaviour visually unambiguous.
      */
-    if (++rgb_test_ticks < 100u) {
+    if (++rgb_test_ticks < 50u) {
         return;
     }
     rgb_test_ticks = 0u;
@@ -350,21 +351,23 @@ void melb_happylighting_local_tick(void)
     control_state.green = 0u;
     control_state.blue = 0u;
 
+    const char *phase_name = "OFF";
     if (rgb_test_phase == 0u) {
         control_state.red = 255u;
-        LOG("MELB: RGB test RED brightness=32 gamma_out=%u\n",
-            gamma_correct(32u));
-    } else if (rgb_test_phase == 1u) {
+        phase_name = "RED";
+    } else if (rgb_test_phase == 2u) {
         control_state.green = 255u;
-        LOG("MELB: RGB test GREEN brightness=32 gamma_out=%u\n",
-            gamma_correct(32u));
-    } else {
+        phase_name = "GREEN";
+    } else if (rgb_test_phase == 4u) {
         control_state.blue = 255u;
-        LOG("MELB: RGB test BLUE brightness=32 gamma_out=%u\n",
-            gamma_correct(32u));
+        phase_name = "BLUE";
     }
 
-    rgb_test_phase = (uint8_t)((rgb_test_phase + 1u) % 3u);
+    LOG("MELB: RGB test %s brightness=32 gamma_out=%u dma_done=%lu\n",
+        phase_name, gamma_correct(32u),
+        (unsigned long)st17h66b_spi1_completed_frames());
+
+    rgb_test_phase = (uint8_t)((rgb_test_phase + 1u) % 6u);
     refresh_status_value();
     render_state();
 }
