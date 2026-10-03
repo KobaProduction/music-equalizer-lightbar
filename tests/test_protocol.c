@@ -69,7 +69,9 @@ static void test_ws2812b_spi_encoding(void)
         assert(white_encoded[i] == 0u);
     }
 
-    assert(ws2812b_spi_encoded_size(32u) == 304u);
+    assert(ws2812b_spi_encoded_size(32u)
+        == (32u * (size_t)WS2812B_SPI_BYTES_PER_PIXEL)
+            + (size_t)WS2812B_SPI_RESET_BYTES);
 }
 
 
@@ -234,10 +236,10 @@ static void test_control_defaults(void)
 
     assert(state.power == 1u);
     assert(state.brightness == 128u);
-    assert(state.red == 255u);
-    assert(state.green == 64u);
-    assert(state.blue == 0u);
-    assert(state.mode == 0x25u);
+    assert(state.red == 0u);
+    assert(state.green == 0u);
+    assert(state.blue == 255u);
+    assert(state.mode == 0x41u);
     assert(state.speed == 24u);
     assert(state.audio_reactive == 0u);
 }

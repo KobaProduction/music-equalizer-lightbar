@@ -13,10 +13,10 @@ void melb_control_state_init(melb_control_state_t *state)
 
     state->power = 1u;
     state->brightness = 128u;
-    state->red = 255u;
-    state->green = 64u;
-    state->blue = 0u;
-    state->mode = 0x25u;
+    state->red = 0u;
+    state->green = 0u;
+    state->blue = 255u;
+    state->mode = 0x41u;
     state->speed = 24u;
     state->audio_reactive = 0u;
 }
