@@ -112,12 +112,18 @@ def main() -> None:
         "\tif ( events & SBP_START_DEVICE_EVT ) {\n\t\tLOG(\"MELB: GAPRole_StartDevice\\n\");\n\t\tVOID GAPRole_StartDevice( &simpleBLEPeripheral_PeripheralCBs );",
         "log GAP role start",
     )
+    main_text = replace_once(
+        main_text,
+        "\tif ( events & ADV_BROADCAST_EVT) {\n\t\tadv_measure();\n\t\tLOG(\"advN%u\\n\", adv_wrk.meas_count);",
+        "\tif ( events & ADV_BROADCAST_EVT) {\n\t\t++adv_wrk.meas_count;\n\t\tLOG(\"advN%u\\n\", adv_wrk.meas_count);",
+        "remove inherited sensor work from advertising event",
+    )
     header_path = output / "source" / "thb2_main.h"
     header_text = header_path.read_text(encoding="utf-8")
     header_text = replace_once(
         header_text,
         "#define LCD_TIMER_EVT         0x0400  // Timer related to display sleep and key long press feature expired",
-        "#define LCD_TIMER_EVT         0x0400  // Timer related to display sleep and key long press feature expired\n#define MELB_LOCAL_CONTROL_EVT  0x0800  // Music-Light-V3 local buttons/animation tick",
+        "#define LCD_TIMER_EVT         0x0400  // Timer related to display sleep and key long press feature expired\n#define MELB_LOCAL_CONTROL_EVT  0x0800  // Music-Light-V3 local buttons/animation tick\n#define MELB_HEARTBEAT_EVT      0x1000  // 1 Hz runtime liveness diagnostic",
         "reserve local-control OSAL event",
     )
     header_path.write_text(header_text, encoding="utf-8")
@@ -131,13 +137,13 @@ def main() -> None:
     main_text = replace_once(
         main_text,
         "SimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile",
-        "LOG(\"MELB: register HappyLighting FFD5/FFD9/FFD4\\n\");\n\tSimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile\n\tmelb_happylighting_local_init();\n\tosal_start_reload_timer(simpleBLEPeripheral_TaskID, MELB_LOCAL_CONTROL_EVT, 10);",
+        "LOG(\"MELB: register HappyLighting FFD5/FFD9/FFD4\\n\");\n\tSimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile\n\tmelb_happylighting_local_init();\n\tosal_start_reload_timer(simpleBLEPeripheral_TaskID, MELB_LOCAL_CONTROL_EVT, 10);\n\tosal_start_reload_timer(simpleBLEPeripheral_TaskID, MELB_HEARTBEAT_EVT, 1000);",
         "start local-control timer",
     )
     main_text = replace_once(
         main_text,
         "\tif(events & SBP_CMDDATA) {",
-        "\tif(events & MELB_LOCAL_CONTROL_EVT) {\n\t\tmelb_happylighting_local_tick();\n\t\treturn(events ^ MELB_LOCAL_CONTROL_EVT);\n\t}\n\tif(events & SBP_CMDDATA) {",
+        "\tif(events & MELB_HEARTBEAT_EVT) {\n\t\tstatic uint32_t melb_heartbeat = 0;\n\t\tLOG(\"MELB: heartbeat %lu events=0x%04x gap=%u adv=%u\\n\", (unsigned long)++melb_heartbeat, events, gapProfileState, gapRole_AdvEnabled);\n\t\treturn(events ^ MELB_HEARTBEAT_EVT);\n\t}\n\tif(events & MELB_LOCAL_CONTROL_EVT) {\n\t\tmelb_happylighting_local_tick();\n\t\treturn(events ^ MELB_LOCAL_CONTROL_EVT);\n\t}\n\tif(events & SBP_CMDDATA) {",
         "local-control event handler",
     )
     main_path.write_text(main_text, encoding="utf-8")

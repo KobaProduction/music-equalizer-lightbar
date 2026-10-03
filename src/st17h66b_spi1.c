@@ -144,21 +144,36 @@ int st17h66b_spi1_init_p34(uint32_t baud_hz)
 
 int st17h66b_spi1_write(const uint8_t *data, size_t size)
 {
+    enum {
+        TX_PROGRESS_POLL_BUDGET = 200000u,
+        FINAL_BUSY_POLL_BUDGET = 200000u,
+    };
+
     if (data == NULL) {
         return -1;
     }
 
     size_t offset = 0u;
+    uint32_t poll_budget = TX_PROGRESS_POLL_BUDGET;
 
     while (offset < size) {
         if ((ST17H66B_SPI1_SR & ST17H66B_SPI_SR_TX_NOT_FULL) != 0u
             && ST17H66B_SPI1_TXFLR < 8u) {
             ST17H66B_SPI1_DATA = data[offset++];
+            poll_budget = TX_PROGRESS_POLL_BUDGET;
+            continue;
+        }
+
+        if (poll_budget-- == 0u) {
+            return -2;
         }
     }
 
+    poll_budget = FINAL_BUSY_POLL_BUDGET;
     while ((ST17H66B_SPI1_SR & ST17H66B_SPI_SR_BUSY) != 0u) {
-        /* Wait for the final serialized bit to leave the peripheral. */
+        if (poll_budget-- == 0u) {
+            return -3;
+        }
     }
 
     return 0;

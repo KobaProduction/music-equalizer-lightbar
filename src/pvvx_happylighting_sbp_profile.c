@@ -247,7 +247,12 @@ static void render_state(void)
         sizeof(spi_frame));
 
     if (encoded == sizeof(spi_frame)) {
-        (void)st17h66b_spi1_write(spi_frame, encoded);
+        const int spi_result = st17h66b_spi1_write(spi_frame, encoded);
+        if (spi_result != 0) {
+            renderer_ready = 0;
+            LOG("MELB: WS2812 SPI timeout/error=%d; renderer disabled, BLE kept alive\n",
+                spi_result);
+        }
     }
 }
 
