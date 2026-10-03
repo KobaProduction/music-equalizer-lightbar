@@ -1,15 +1,10 @@
 #include "st17h66b_spi1.h"
 
 #include <stdint.h>
+#include <string.h>
 
+#include "dma.h"
 #include "pwrmgr.h"
-
-/*
- * Minimal project-owned SPI1 bring-up for ST17H66B/PHY62x2.
- *
- * Register addresses and mux identifiers are reconstructed from public
- * PHY62x2 technical references. No vendor driver source is linked here.
- */
 
 #define BIT_U32(n) (UINT32_C(1) << (n))
 
@@ -31,30 +26,37 @@
 #define ST17H66B_SPI1_SSIEN  (*(volatile uint8_t  *)(ST17H66B_SPI1_BASE + 0x08u))
 #define ST17H66B_SPI1_SER    (*(volatile uint8_t  *)(ST17H66B_SPI1_BASE + 0x10u))
 #define ST17H66B_SPI1_BAUDR  (*(volatile uint32_t *)(ST17H66B_SPI1_BASE + 0x14u))
-#define ST17H66B_SPI1_TXFLR  (*(volatile uint32_t *)(ST17H66B_SPI1_BASE + 0x20u))
 #define ST17H66B_SPI1_SR     (*(volatile uint8_t  *)(ST17H66B_SPI1_BASE + 0x28u))
 #define ST17H66B_SPI1_IMR    (*(volatile uint32_t *)(ST17H66B_SPI1_BASE + 0x2cu))
+#define ST17H66B_SPI1_DMACR  (*(volatile uint32_t *)(ST17H66B_SPI1_BASE + 0x4cu))
+#define ST17H66B_SPI1_DMATDLR (*(volatile uint32_t *)(ST17H66B_SPI1_BASE + 0x50u))
 #define ST17H66B_SPI1_DATA   (*(volatile uint32_t *)(ST17H66B_SPI1_BASE + 0x60u))
 
 #define ST17H66B_MOD_IOMUX 7u
 #define ST17H66B_MOD_SPI1  12u
 #define ST17H66B_MOD_COM   6u
 
-/* GPIO driver index for P34 in the PHY62x2 GPIO block. */
 #define ST17H66B_GPIO_INDEX_P34 22u
-
-/* Full-mux function identifier for SPI1 TX/SDO. */
 #define ST17H66B_FMUX_SPI1_TX 22u
 
 #define ST17H66B_SPI_SR_BUSY UINT8_C(0x01)
-#define ST17H66B_SPI_SR_TX_NOT_FULL UINT8_C(0x02)
 
-/*
- * Public ROM symbol maps identify clk_get_pclk at this Thumb address.
- * This is used only as a ROM interface, not as copied SDK implementation.
- */
+#define ST17H66B_DMA_FRAME_CAPACITY 1024u
+#define ST17H66B_DMA_CHUNK_MAX 0x07ffu
+
 typedef uint32_t (*rom_clk_get_pclk_t)(void);
-#define ST17H66B_ROM_CLK_GET_PCLK ((rom_clk_get_pclk_t)(uintptr_t)UINT32_C(0x0000a5d1))
+#define ST17H66B_ROM_CLK_GET_PCLK     ((rom_clk_get_pclk_t)(uintptr_t)UINT32_C(0x0000a5d1))
+
+static uint32_t s_spi1_baud_hz;
+static uint8_t s_dma_buffers[2][ST17H66B_DMA_FRAME_CAPACITY];
+static volatile uint8_t s_dma_active;
+static volatile uint8_t s_active_buffer;
+static volatile uint8_t s_pending_valid;
+static volatile uint8_t s_pending_buffer;
+static volatile uint16_t s_active_size;
+static volatile uint16_t s_active_offset;
+static volatile uint16_t s_pending_size;
+static volatile uint32_t s_completed_frames;
 
 static void configure_p34_spi1_tx(void)
 {
@@ -68,11 +70,8 @@ static void configure_p34_spi1_tx(void)
     value &= ~mask;
     value |= ST17H66B_FMUX_SPI1_TX << shift;
     ST17H66B_IOMUX_GPIO_SEL(register_index) = value;
-
     ST17H66B_IOMUX_FULL_MUX0_EN |= BIT_U32(pin);
 }
-
-static uint32_t s_spi1_baud_hz;
 
 static int st17h66b_spi1_hw_init(uint32_t baud_hz)
 {
@@ -101,24 +100,8 @@ static int st17h66b_spi1_hw_init(uint32_t baud_hz)
     if (divider > UINT32_C(65534)) {
         divider = UINT32_C(65534);
     }
-
     if ((divider & 1u) != 0u) {
-        const uint32_t down = divider > 2u ? divider - 1u : 2u;
-        const uint32_t up = divider < UINT32_C(65534)
-            ? divider + 1u
-            : UINT32_C(65534);
-
-        const uint32_t down_product = baud_hz * down;
-        const uint32_t up_product = baud_hz * up;
-
-        const uint32_t down_error = pclk_hz > down_product
-            ? pclk_hz - down_product
-            : down_product - pclk_hz;
-        const uint32_t up_error = pclk_hz > up_product
-            ? pclk_hz - up_product
-            : up_product - pclk_hz;
-
-        divider = down_error <= up_error ? down : up;
+        ++divider;
     }
 
     ST17H66B_SPI1_SSIEN = 0u;
@@ -126,6 +109,8 @@ static int st17h66b_spi1_hw_init(uint32_t baud_hz)
     ST17H66B_COM_PERI_MASTER_SELECT |= BIT_U32(1) | BIT_U32(5);
     ST17H66B_SPI1_BAUDR = divider;
     ST17H66B_SPI1_IMR = 0u;
+    ST17H66B_SPI1_DMACR = 0u;
+    ST17H66B_SPI1_DMATDLR = 0u;
     ST17H66B_SPI1_SER = 1u;
     ST17H66B_SPI1_SSIEN = 1u;
 
@@ -139,61 +124,115 @@ static void st17h66b_spi1_wakeup_restore(void)
     }
 }
 
-int st17h66b_spi1_init_p34(uint32_t baud_hz)
+static int start_dma_chunk(void)
 {
-    const int init_result = st17h66b_spi1_hw_init(baud_hz);
-    if (init_result != 0) {
-        return init_result;
+    const uint16_t remaining =
+        (uint16_t)(s_active_size - s_active_offset);
+    const uint16_t chunk =
+        remaining > ST17H66B_DMA_CHUNK_MAX
+            ? ST17H66B_DMA_CHUNK_MAX
+            : remaining;
+
+    DMA_CH_CFG_t cfg;
+    memset(&cfg, 0, sizeof(cfg));
+
+    cfg.transf_size = chunk;
+    cfg.sinc = DMA_INC_INC;
+    cfg.src_tr_width = DMA_WIDTH_BYTE;
+    cfg.src_msize = DMA_BSIZE_1;
+    cfg.src_addr =
+        (uint32_t)&s_dma_buffers[s_active_buffer][s_active_offset];
+
+    cfg.dinc = DMA_INC_NCHG;
+    cfg.dst_tr_width = DMA_WIDTH_BYTE;
+    cfg.dst_msize = DMA_BSIZE_1;
+    cfg.dst_addr = (uint32_t)&ST17H66B_SPI1_DATA;
+    cfg.enable_int = true;
+
+    ST17H66B_SPI1_DMATDLR = 0u;
+    ST17H66B_SPI1_DMACR |= UINT32_C(0x02);
+
+    const int cfg_result = hal_dma_config_channel(DMA_CH_0, &cfg);
+    if (cfg_result != 0) {
+        return -10;
     }
 
-    s_spi1_baud_hz = baud_hz;
+    s_active_offset = (uint16_t)(s_active_offset + chunk);
 
-    const int pwr_result =
-        hal_pwrmgr_register(MOD_SPI1, NULL, st17h66b_spi1_wakeup_restore);
-    if (pwr_result != 0) {
-        return -3;
-    }
-
-    /*
-     * Keep SPI1 awake continuously during WS2812 hardware bring-up.
-     * The LED renderer is periodic and the direct SSI backend has not yet
-     * been hardware-validated across PHY6222 sleep transitions.
-     */
-    if (hal_pwrmgr_lock(MOD_SPI1) != 0) {
-        return -4;
+    const int start_result = hal_dma_start_channel(DMA_CH_0);
+    if (start_result != 0) {
+        return -11;
     }
 
     return 0;
 }
 
-static int st17h66b_spi1_write_once(const uint8_t *data, size_t size)
+static void finish_spi_frame(void)
 {
-    enum {
-        TX_PROGRESS_POLL_BUDGET = 200000u,
-        FINAL_BUSY_POLL_BUDGET = 200000u,
-    };
+    /*
+     * DMA completion means the final bytes reached the SSI FIFO. Wait only
+     * for the small hardware FIFO to drain before allowing sleep again.
+     */
+    uint32_t budget = 20000u;
+    while ((ST17H66B_SPI1_SR & ST17H66B_SPI_SR_BUSY) != 0u
+        && budget-- != 0u) {
+    }
 
-    size_t offset = 0u;
-    uint32_t poll_budget = TX_PROGRESS_POLL_BUDGET;
+    ++s_completed_frames;
+}
 
-    while (offset < size) {
-        if ((ST17H66B_SPI1_SR & ST17H66B_SPI_SR_TX_NOT_FULL) != 0u
-            && ST17H66B_SPI1_TXFLR < 8u) {
-            ST17H66B_SPI1_DATA = data[offset++];
-            poll_budget = TX_PROGRESS_POLL_BUDGET;
-            continue;
-        }
+static void dma_complete(DMA_CH_t channel)
+{
+    (void)channel;
 
-        if (poll_budget-- == 0u) {
-            return -2;
+    if (s_active_offset < s_active_size) {
+        (void)start_dma_chunk();
+        return;
+    }
+
+    finish_spi_frame();
+
+    if (s_pending_valid != 0u) {
+        s_active_buffer = s_pending_buffer;
+        s_active_size = s_pending_size;
+        s_active_offset = 0u;
+        s_pending_valid = 0u;
+
+        if (start_dma_chunk() == 0) {
+            return;
         }
     }
 
-    poll_budget = FINAL_BUSY_POLL_BUDGET;
-    while ((ST17H66B_SPI1_SR & ST17H66B_SPI_SR_BUSY) != 0u) {
-        if (poll_budget-- == 0u) {
-            return -3;
-        }
+    s_dma_active = 0u;
+    ST17H66B_SPI1_DMACR &= ~UINT32_C(0x02);
+    (void)hal_pwrmgr_unlock(MOD_SPI1);
+}
+
+int st17h66b_spi1_init_p34(uint32_t baud_hz)
+{
+    const int hw_result = st17h66b_spi1_hw_init(baud_hz);
+    if (hw_result != 0) {
+        return hw_result;
+    }
+
+    s_spi1_baud_hz = baud_hz;
+
+    if (hal_pwrmgr_register(
+            MOD_SPI1, NULL, st17h66b_spi1_wakeup_restore) != 0) {
+        return -3;
+    }
+
+    if (hal_dma_init() != 0) {
+        return -4;
+    }
+
+    const HAL_DMA_t channel_cfg = {
+        .dma_channel = DMA_CH_0,
+        .evt_handler = dma_complete,
+    };
+
+    if (hal_dma_init_channel(channel_cfg) != 0) {
+        return -5;
     }
 
     return 0;
@@ -201,18 +240,51 @@ static int st17h66b_spi1_write_once(const uint8_t *data, size_t size)
 
 int st17h66b_spi1_write(const uint8_t *data, size_t size)
 {
-    if (data == NULL) {
+    if (data == NULL || size == 0u) {
         return -1;
     }
-
-    int result = st17h66b_spi1_write_once(data, size);
-
-    if (result != 0 && s_spi1_baud_hz != 0u) {
-        const int restore_result = st17h66b_spi1_hw_init(s_spi1_baud_hz);
-        if (restore_result == 0) {
-            result = st17h66b_spi1_write_once(data, size);
-        }
+    if (size > ST17H66B_DMA_FRAME_CAPACITY) {
+        return -2;
     }
 
-    return result;
+    HAL_ENTER_CRITICAL_SECTION();
+
+    if (s_dma_active == 0u) {
+        s_active_buffer = 0u;
+        memcpy(s_dma_buffers[0], data, size);
+        s_active_size = (uint16_t)size;
+        s_active_offset = 0u;
+        s_dma_active = 1u;
+
+        if (hal_pwrmgr_lock(MOD_SPI1) != 0) {
+            s_dma_active = 0u;
+            HAL_EXIT_CRITICAL_SECTION();
+            return -3;
+        }
+
+        const int start_result = start_dma_chunk();
+        if (start_result != 0) {
+            s_dma_active = 0u;
+            (void)hal_pwrmgr_unlock(MOD_SPI1);
+            HAL_EXIT_CRITICAL_SECTION();
+            return start_result;
+        }
+
+        HAL_EXIT_CRITICAL_SECTION();
+        return 0;
+    }
+
+    const uint8_t buffer = (uint8_t)(s_active_buffer ^ 1u);
+    memcpy(s_dma_buffers[buffer], data, size);
+    s_pending_buffer = buffer;
+    s_pending_size = (uint16_t)size;
+    s_pending_valid = 1u;
+
+    HAL_EXIT_CRITICAL_SECTION();
+    return 0;
+}
+
+uint32_t st17h66b_spi1_completed_frames(void)
+{
+    return s_completed_frames;
 }

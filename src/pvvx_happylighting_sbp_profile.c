@@ -512,8 +512,8 @@ bStatus_t SimpleProfile_AddService(uint32 services)
         render_state();
         control_state.power = boot_power;
         render_state();
-        LOG("MELB: boot effect rainbow mode=%02x brightness=%u speed=%u\n",
-            control_state.mode, control_state.brightness, control_state.speed);
+        LOG("MELB: boot static blue mode=%02x brightness=%u dma=1\n",
+            control_state.mode, control_state.brightness);
     }
 
     return GATTServApp_RegisterService(
