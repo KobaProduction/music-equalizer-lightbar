@@ -88,6 +88,30 @@ def main() -> None:
         "(void)0;",
         "avoid name-setting flash write",
     )
+    main_text = replace_once(
+        main_text,
+        "void SimpleBLEPeripheral_Init( uint8_t task_id )\n{\n\tsimpleBLEPeripheral_TaskID = task_id;",
+        "void SimpleBLEPeripheral_Init( uint8_t task_id )\n{\n\tsimpleBLEPeripheral_TaskID = task_id;\n\tLOG(\"\\nMELB boot: Music-Light-V3-221101 / ST17H66B\\n\");\n\tLOG(\"MELB: UART0 P9/P10 115200\\n\");\n\tLOG(\"MELB: BLE init begin\\n\");",
+        "add MELB UART startup banner",
+    )
+    main_text = replace_once(
+        main_text,
+        "\t\tset_mac();",
+        "\t\tset_mac();\n\t\tLOG(\"MELB: BLE name=%s\\n\", &gapRole_ScanRspData[2]);\n\t\tLOG(\"MELB: adv interval units=%u\\n\", (unsigned)(cfg.advertising_interval * 100));",
+        "log BLE identity",
+    )
+    main_text = replace_once(
+        main_text,
+        "\tif ( events & SBP_RESET_ADV_EVT ) {\n\t\tLOG(\"SBP_RESET_ADV_EVT\\n\");",
+        "\tif ( events & SBP_RESET_ADV_EVT ) {\n\t\tLOG(\"MELB: SBP_RESET_ADV_EVT -> enable advertising\\n\");",
+        "log advertising enable",
+    )
+    main_text = replace_once(
+        main_text,
+        "\tif ( events & SBP_START_DEVICE_EVT ) {\n\t\t// Start the Device\n\t\tVOID GAPRole_StartDevice( &simpleBLEPeripheral_PeripheralCBs );",
+        "\tif ( events & SBP_START_DEVICE_EVT ) {\n\t\tLOG(\"MELB: GAPRole_StartDevice\\n\");\n\t\tVOID GAPRole_StartDevice( &simpleBLEPeripheral_PeripheralCBs );",
+        "log GAP role start",
+    )
     header_path = output / "source" / "thb2_main.h"
     header_text = header_path.read_text(encoding="utf-8")
     header_text = replace_once(
@@ -107,7 +131,7 @@ def main() -> None:
     main_text = replace_once(
         main_text,
         "SimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile",
-        "SimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile\n\tmelb_lotus_local_init();\n\tosal_start_reload_timer(simpleBLEPeripheral_TaskID, MELB_LOCAL_CONTROL_EVT, 10);",
+        "LOG(\"MELB: register Lotus FFF0/FFF3\\n\");\n\tSimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile\n\tmelb_lotus_local_init();\n\tosal_start_reload_timer(simpleBLEPeripheral_TaskID, MELB_LOCAL_CONTROL_EVT, 10);",
         "start local-control timer",
     )
     main_text = replace_once(
@@ -117,6 +141,22 @@ def main() -> None:
         "local-control event handler",
     )
     main_path.write_text(main_text, encoding="utf-8")
+
+    config_c_path = output / "source" / "config.c"
+    config_c = config_c_path.read_text(encoding="utf-8")
+    config_c = replace_once(
+        config_c,
+        "void load_eep_config(void) {\n\tif(!flash_supported_eep_ver(0, APP_VERSION)) {",
+        "void load_eep_config(void) {\n\t/* MELB bring-up: ignore incompatible factory application config bytes. */\n\tmemcpy(&cfg, &def_cfg, sizeof(cfg));\n\tcfg.advertising_interval = 2; /* 2 * 62.5 ms = 125 ms */\n\tcfg.connect_latency = 0;\n\tcfg.batt_interval = 60;\n\ttest_config();\n\treturn;\n#if 0\n\tif(!flash_supported_eep_ver(0, APP_VERSION)) {",
+        "force safe RAM config defaults",
+    )
+    config_c = replace_once(
+        config_c,
+        "\ttest_config();\n}\n\nvoid save_config(void)",
+        "\ttest_config();\n#endif\n}\n\nvoid save_config(void)",
+        "close disabled persisted config block",
+    )
+    config_c_path.write_text(config_c, encoding="utf-8")
 
     battery_path = output / "source" / "battery.c"
     battery_path.write_text(
@@ -151,6 +191,12 @@ def main() -> None:
 
     makefile_path = output / "Makefile"
     makefile = makefile_path.read_text(encoding="utf-8")
+    makefile = replace_once(
+        makefile,
+        "DEFINES += -DDEBUG_INFO=0",
+        "DEFINES += -DDEBUG_INFO=1",
+        "enable UART debug logging",
+    )
     marker = "SRC_PRJ += sbp_profile.c\n"
     additions = (
         marker

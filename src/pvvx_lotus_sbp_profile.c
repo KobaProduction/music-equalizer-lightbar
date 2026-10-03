@@ -11,6 +11,7 @@
 #include "ble_control.h"
 #include "lotus_lantern.h"
 #include "local_controls.h"
+#include "log.h"
 #include "gpio.h"
 #include "st17h66b_spi1.h"
 #include "ws2812b.h"
@@ -177,6 +178,9 @@ void melb_lotus_local_tick(void)
         !hal_gpio_read(GPIO_P07));
 
     if (changed) {
+        LOG("MELB: button state power=%u mode=%u bright=%u speed=%u rgb=%u,%u,%u\n",
+            control_state.power, control_state.mode, control_state.brightness,
+            control_state.speed, control_state.red, control_state.green, control_state.blue);
         animation_ticks = 0u;
         render_state();
     }
@@ -243,12 +247,19 @@ static bStatus_t lotus_write_attr(
         return ATT_ERR_INVALID_VALUE_SIZE;
     }
 
+    LOG("MELB: Lotus write cmd=0x%02x p=%02x %02x %02x %02x %02x len=%u\n",
+        value[2], value[3], value[4], value[5], value[6], value[7], length);
+
     if (lotus_lantern_apply_frame(&control_state, value, length)
         != LOTUS_LANTERN_OK) {
+        LOG("MELB: Lotus frame rejected\n");
         return ATT_ERR_INVALID_VALUE;
     }
 
     memcpy(lotus_write_value, value, LOTUS_LANTERN_FRAME_SIZE);
+    LOG("MELB: state power=%u mode=%u bright=%u speed=%u rgb=%u,%u,%u\n",
+        control_state.power, control_state.mode, control_state.brightness,
+        control_state.speed, control_state.red, control_state.green, control_state.blue);
     render_state();
 
     return SUCCESS;
@@ -293,8 +304,13 @@ bStatus_t SimpleProfile_AddService(uint32 services)
     renderer_ready =
         st17h66b_spi1_init_p34(WS2812B_SPI_BAUD_HZ) == 0;
 
+    LOG("MELB: WS2812 SPI1/P34 init=%s\n", renderer_ready ? "ok" : "FAIL");
     if (renderer_ready) {
+        /* Explicit black frame on every boot before BLE starts. */
+        control_state.power = 0u;
         render_state();
+        render_state();
+        LOG("MELB: WS2812 black boot frame sent\n");
     }
 
     return GATTServApp_RegisterService(
