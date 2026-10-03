@@ -48,6 +48,9 @@ typedef uint32_t (*rom_clk_get_pclk_t)(void);
 #define ST17H66B_ROM_CLK_GET_PCLK     ((rom_clk_get_pclk_t)(uintptr_t)UINT32_C(0x0000a5d1))
 
 static uint32_t s_spi1_baud_hz;
+static uint32_t s_spi1_pclk_hz;
+static uint32_t s_spi1_effective_baud_hz;
+static uint32_t s_spi1_divider;
 static uint8_t s_dma_buffers[2][ST17H66B_DMA_FRAME_CAPACITY];
 static volatile uint8_t s_dma_active;
 static volatile uint8_t s_active_buffer;
@@ -100,14 +103,34 @@ static int st17h66b_spi1_hw_init(uint32_t baud_hz)
     if (divider > UINT32_C(65534)) {
         divider = UINT32_C(65534);
     }
+
+    /*
+     * DW-SSI requires an even BAUDR divider. If normal rounding lands on an
+     * odd value, choose the neighbouring even divider that gives the smaller
+     * frequency error. The old code always rounded upward, which can turn a
+     * 16 MHz PCLK / 2.4 MHz request into 2.0 MHz instead of the much closer
+     * 2.667 MHz and pushes 3-bit WS2812 symbols outside their useful window.
+     */
     if ((divider & 1u) != 0u) {
-        ++divider;
+        const uint32_t lower = divider > 2u ? divider - 1u : 2u;
+        const uint32_t upper =
+            divider < UINT32_C(65534) ? divider + 1u : UINT32_C(65534);
+        const uint32_t lower_hz = pclk_hz / lower;
+        const uint32_t upper_hz = pclk_hz / upper;
+        const uint32_t lower_error =
+            lower_hz > baud_hz ? lower_hz - baud_hz : baud_hz - lower_hz;
+        const uint32_t upper_error =
+            upper_hz > baud_hz ? upper_hz - baud_hz : baud_hz - upper_hz;
+        divider = lower_error <= upper_error ? lower : upper;
     }
 
     ST17H66B_SPI1_SSIEN = 0u;
     ST17H66B_SPI1_CR0 = (uint16_t)(UINT16_C(0x0007) | UINT16_C(0x0100));
     ST17H66B_COM_PERI_MASTER_SELECT |= BIT_U32(1) | BIT_U32(5);
     ST17H66B_SPI1_BAUDR = divider;
+    s_spi1_pclk_hz = pclk_hz;
+    s_spi1_divider = divider;
+    s_spi1_effective_baud_hz = pclk_hz / divider;
     ST17H66B_SPI1_IMR = 0u;
     ST17H66B_SPI1_DMACR = 0u;
     ST17H66B_SPI1_DMATDLR = 0u;
@@ -149,8 +172,14 @@ static int start_dma_chunk(void)
     cfg.dst_addr = (uint32_t)&ST17H66B_SPI1_DATA;
     cfg.enable_int = true;
 
+    /*
+     * Match the PHYplus SPI driver's ordering exactly: disable TX DMA,
+     * configure and start the channel first, then expose the SSI request.
+     * Enabling DMACR before the DMA channel is armed can lose the initial
+     * TX-empty request and corrupt the first WS2812 symbols.
+     */
+    ST17H66B_SPI1_DMACR &= ~UINT32_C(0x02);
     ST17H66B_SPI1_DMATDLR = 0u;
-    ST17H66B_SPI1_DMACR |= UINT32_C(0x02);
 
     const int cfg_result = hal_dma_config_channel(DMA_CH_0, &cfg);
     if (cfg_result != 0) {
@@ -164,6 +193,7 @@ static int start_dma_chunk(void)
         return -11;
     }
 
+    ST17H66B_SPI1_DMACR |= UINT32_C(0x02);
     return 0;
 }
 
@@ -287,4 +317,19 @@ int st17h66b_spi1_write(const uint8_t *data, size_t size)
 uint32_t st17h66b_spi1_completed_frames(void)
 {
     return s_completed_frames;
+}
+
+uint32_t st17h66b_spi1_pclk_hz(void)
+{
+    return s_spi1_pclk_hz;
+}
+
+uint32_t st17h66b_spi1_effective_baud_hz(void)
+{
+    return s_spi1_effective_baud_hz;
+}
+
+uint32_t st17h66b_spi1_divider(void)
+{
+    return s_spi1_divider;
 }

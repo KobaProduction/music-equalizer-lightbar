@@ -38,6 +38,8 @@ static melb_local_controls_t local_controls;
 static uint8_t animation_phase;
 static uint8_t animation_ticks;
 static uint32_t render_count;
+static uint16_t rgb_test_ticks;
+static uint8_t rgb_test_phase;
 
 static CONST uint8 happy_service_uuid[ATT_BT_UUID_SIZE] = {
     LO_UINT16(HAPPY_LIGHTING_SERVICE_UUID16),
@@ -68,9 +70,21 @@ static uint8 happy_write_value[20];
 static uint8 happy_notify_value[HAPPY_LIGHTING_STATUS_SIZE];
 static gattCharCfg_t happy_notify_cfg[GATT_MAX_NUM_CONN];
 
+static uint8_t gamma_correct(uint8_t linear)
+{
+    /*
+     * Integer gamma ~= 2.0. This keeps bring-up deterministic and cheap on
+     * Cortex-M0 while preventing low UI brightness values from looking harsh.
+     */
+    const uint16_t squared = (uint16_t)linear * (uint16_t)linear;
+    return (uint8_t)((squared + UINT16_C(254)) / UINT16_C(255));
+}
+
 static uint8_t scale_channel(uint8_t channel, uint8_t brightness)
 {
-    return (uint8_t)(((uint16_t)channel * (uint16_t)brightness) / UINT16_C(255));
+    const uint8_t linear =
+        (uint8_t)(((uint16_t)channel * (uint16_t)brightness) / UINT16_C(255));
+    return gamma_correct(linear);
 }
 
 static ws2812b_pixel_t wheel(uint8_t pos)
@@ -318,23 +332,41 @@ void melb_happylighting_local_tick(void)
         LOG("MELB: buttons power=%u mode=%02x bright=%u speed=%u rgb=%u,%u,%u\n",
             control_state.power, control_state.mode, control_state.brightness,
             control_state.speed, control_state.red, control_state.green, control_state.blue);
-        animation_ticks = 0u;
         refresh_status_value();
-        render_state();
     }
 
-    if (control_state.power == 0u || control_state.mode == HAPPY_LIGHTING_MODE_STATIC) {
+    /*
+     * Hardware bring-up pattern: one pure primary per second at deliberately
+     * low brightness. Power remains live so BLE/P11 can prove black frames.
+     */
+    if (++rgb_test_ticks < 100u) {
         return;
     }
+    rgb_test_ticks = 0u;
 
-    const uint8_t interval =
-        (uint8_t)(1u + ((uint16_t)control_state.speed / 16u));
+    control_state.mode = HAPPY_LIGHTING_MODE_STATIC;
+    control_state.brightness = 32u;
+    control_state.red = 0u;
+    control_state.green = 0u;
+    control_state.blue = 0u;
 
-    if (++animation_ticks >= interval) {
-        animation_ticks = 0u;
-        ++animation_phase;
-        render_state();
+    if (rgb_test_phase == 0u) {
+        control_state.red = 255u;
+        LOG("MELB: RGB test RED brightness=32 gamma_out=%u\n",
+            gamma_correct(32u));
+    } else if (rgb_test_phase == 1u) {
+        control_state.green = 255u;
+        LOG("MELB: RGB test GREEN brightness=32 gamma_out=%u\n",
+            gamma_correct(32u));
+    } else {
+        control_state.blue = 255u;
+        LOG("MELB: RGB test BLUE brightness=32 gamma_out=%u\n",
+            gamma_correct(32u));
     }
+
+    rgb_test_phase = (uint8_t)((rgb_test_phase + 1u) % 3u);
+    refresh_status_value();
+    render_state();
 }
 
 static uint8 happy_read_attr(
@@ -497,6 +529,13 @@ bStatus_t SimpleProfile_AddService(uint32 services)
     melb_control_state_init(&control_state);
     animation_phase = 0u;
     animation_ticks = 0u;
+    rgb_test_ticks = 0u;
+    rgb_test_phase = 0u;
+    control_state.brightness = 32u;
+    control_state.red = 255u;
+    control_state.green = 0u;
+    control_state.blue = 0u;
+    control_state.mode = HAPPY_LIGHTING_MODE_STATIC;
     refresh_status_value();
 
     GATTServApp_InitCharCfg(INVALID_CONNHANDLE, happy_notify_cfg);
@@ -505,15 +544,20 @@ bStatus_t SimpleProfile_AddService(uint32 services)
     renderer_ready =
         st17h66b_spi1_init_p34(WS2812B_SPI_BAUD_HZ) == 0;
 
-    LOG("MELB: WS2812 SPI1/P34 init=%s\n", renderer_ready ? "ok" : "FAIL");
+    LOG("MELB: WS2812 SPI1/P34 init=%s pclk=%lu divider=%lu actual=%luHz target=%luHz\n",
+        renderer_ready ? "ok" : "FAIL",
+        (unsigned long)st17h66b_spi1_pclk_hz(),
+        (unsigned long)st17h66b_spi1_divider(),
+        (unsigned long)st17h66b_spi1_effective_baud_hz(),
+        (unsigned long)WS2812B_SPI_BAUD_HZ);
     if (renderer_ready) {
         const uint8_t boot_power = control_state.power;
         control_state.power = 0u;
         render_state();
         control_state.power = boot_power;
         render_state();
-        LOG("MELB: boot static blue mode=%02x brightness=%u dma=1\n",
-            control_state.mode, control_state.brightness);
+        LOG("MELB: boot RGB diagnostic RED brightness=%u gamma_out=%u dma=1\n",
+            control_state.brightness, gamma_correct(control_state.brightness));
     }
 
     return GATTServApp_RegisterService(
