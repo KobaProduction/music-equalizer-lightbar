@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 
+#include "pwrmgr.h"
+
 /*
  * Minimal project-owned SPI1 bring-up for ST17H66B/PHY62x2.
  *
@@ -70,18 +72,18 @@ static void configure_p34_spi1_tx(void)
     ST17H66B_IOMUX_FULL_MUX0_EN |= BIT_U32(pin);
 }
 
-int st17h66b_spi1_init_p34(uint32_t baud_hz)
+static uint32_t s_spi1_baud_hz;
+
+static int st17h66b_spi1_hw_init(uint32_t baud_hz)
 {
     if (baud_hz == 0u) {
         return -1;
     }
 
-    /* Enable IOMUX, SPI1 and COM register clocks. */
     ST17H66B_PCR_SW_CLK |= BIT_U32(ST17H66B_MOD_IOMUX)
         | BIT_U32(ST17H66B_MOD_SPI1);
     ST17H66B_PCR_SW_CLK1 |= BIT_U32(ST17H66B_MOD_COM);
 
-    /* Reset SPI1 before configuring it. */
     ST17H66B_PCR_SW_RESET0 &= ~BIT_U32(ST17H66B_MOD_SPI1);
     ST17H66B_PCR_SW_RESET0 |= BIT_U32(ST17H66B_MOD_SPI1);
 
@@ -100,10 +102,6 @@ int st17h66b_spi1_init_p34(uint32_t baud_hz)
         divider = UINT32_C(65534);
     }
 
-    /*
-     * The DesignWare SSI baud divider is defined for even values. Select the
-     * nearest even divider using cross-multiplied frequency error.
-     */
     if ((divider & 1u) != 0u) {
         const uint32_t down = divider > 2u ? divider - 1u : 2u;
         const uint32_t up = divider < UINT32_C(65534)
@@ -124,16 +122,8 @@ int st17h66b_spi1_init_p34(uint32_t baud_hz)
     }
 
     ST17H66B_SPI1_SSIEN = 0u;
-
-    /*
-     * SPI mode 0, 8-bit frames, transmit-only.
-     * CR0: DFS=7 (8 bits), TMOD=1 (TX only).
-     */
     ST17H66B_SPI1_CR0 = (uint16_t)(UINT16_C(0x0007) | UINT16_C(0x0100));
-
-    /* Select SPI1 as AP master and enable its master clock path. */
     ST17H66B_COM_PERI_MASTER_SELECT |= BIT_U32(1) | BIT_U32(5);
-
     ST17H66B_SPI1_BAUDR = divider;
     ST17H66B_SPI1_IMR = 0u;
     ST17H66B_SPI1_SER = 1u;
@@ -142,16 +132,37 @@ int st17h66b_spi1_init_p34(uint32_t baud_hz)
     return 0;
 }
 
-int st17h66b_spi1_write(const uint8_t *data, size_t size)
+static void st17h66b_spi1_wakeup_restore(void)
+{
+    if (s_spi1_baud_hz != 0u) {
+        (void)st17h66b_spi1_hw_init(s_spi1_baud_hz);
+    }
+}
+
+int st17h66b_spi1_init_p34(uint32_t baud_hz)
+{
+    const int init_result = st17h66b_spi1_hw_init(baud_hz);
+    if (init_result != 0) {
+        return init_result;
+    }
+
+    s_spi1_baud_hz = baud_hz;
+
+    const int pwr_result =
+        hal_pwrmgr_register(MOD_SPI1, NULL, st17h66b_spi1_wakeup_restore);
+    if (pwr_result != 0) {
+        return -3;
+    }
+
+    return 0;
+}
+
+static int st17h66b_spi1_write_once(const uint8_t *data, size_t size)
 {
     enum {
         TX_PROGRESS_POLL_BUDGET = 200000u,
         FINAL_BUSY_POLL_BUDGET = 200000u,
     };
-
-    if (data == NULL) {
-        return -1;
-    }
 
     size_t offset = 0u;
     uint32_t poll_budget = TX_PROGRESS_POLL_BUDGET;
@@ -177,4 +188,27 @@ int st17h66b_spi1_write(const uint8_t *data, size_t size)
     }
 
     return 0;
+}
+
+int st17h66b_spi1_write(const uint8_t *data, size_t size)
+{
+    if (data == NULL) {
+        return -1;
+    }
+
+    if (hal_pwrmgr_lock(MOD_SPI1) != 0) {
+        return -4;
+    }
+
+    int result = st17h66b_spi1_write_once(data, size);
+
+    if (result != 0 && s_spi1_baud_hz != 0u) {
+        const int restore_result = st17h66b_spi1_hw_init(s_spi1_baud_hz);
+        if (restore_result == 0) {
+            result = st17h66b_spi1_write_once(data, size);
+        }
+    }
+
+    (void)hal_pwrmgr_unlock(MOD_SPI1);
+    return result;
 }
