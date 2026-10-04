@@ -1,12 +1,12 @@
 {
   "channel": "dev",
-  "label": "Restore known-good HappyLighting BLE behavior",
+  "label": "Fix LED channel order and final latch",
   "board": "Music-Light-V3-221101",
   "mcu": "ST17H66B / PHY6222M005",
   "source_branch": "feature/product-runtime",
-  "source_commit": "2ce47121a0ed0bf81137649838d75c58bdbee88f",
+  "source_commit": "bb6123cab43ffd0fef5941ed797fd9112431683c",
   "validation": "build-pass; hardware validation tracked separately",
   "firmware_url": "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex",
-  "size": 147232,
-  "sha256": "12a117d837d252cdb777301852a0c5194864084727192d7333cf811176e1eda2"
+  "size": 147322,
+  "sha256": "33b0af932d71f0c0195799f9cc79e959729246ad27b03b2722915c53b5ed7a87"
 }
