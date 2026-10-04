@@ -1,12 +1,12 @@
 {
   "channel": "dev",
-  "label": "Use minimum brightness segmented RGB protocol sweep",
+  "label": "Reproduce factory LED SPI contract",
   "board": "Music-Light-V3-221101",
   "mcu": "ST17H66B / PHY6222M005",
   "source_branch": "debug/osal-heartbeat",
-  "source_commit": "dd5473c0ff4ed228748581e7d983486e0c76d9a9",
+  "source_commit": "710c98281333e61224ca7799f9f393af9590fd0f",
   "validation": "build-pass; hardware validation tracked separately",
   "firmware_url": "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex",
-  "size": 148291,
-  "sha256": "cdd67aba7a79c9b4fdf75431ede98da495f1c0a24edcef9bc7b3e1ca75bc8cce"
+  "size": 148799,
+  "sha256": "2d9034cc82cbc3a083e8f9909810f55f438cb76c0fac392b337baab46ce3feaf"
 }
