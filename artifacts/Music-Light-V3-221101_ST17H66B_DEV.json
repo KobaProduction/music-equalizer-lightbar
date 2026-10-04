@@ -1,12 +1,12 @@
 {
   "channel": "dev",
-  "label": "Diagnose LED tail with 40-pixel frame",
+  "label": "Stabilize LED frame tail and DMA completion",
   "board": "Music-Light-V3-221101",
   "mcu": "ST17H66B / PHY6222M005",
   "source_branch": "feature/product-runtime",
-  "source_commit": "b7964aef5501c4b9b2fdd0d5dad1f738083aef81",
+  "source_commit": "1028d1ffcea7676182fe82e2e13219a2fbee0dd7",
   "validation": "build-pass; hardware validation tracked separately",
   "firmware_url": "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex",
-  "size": 147322,
-  "sha256": "bfdf50c008577be993f377b8ba5cb02375d383abdb4c086f960f86a3bc455194"
+  "size": 147367,
+  "sha256": "619d34d64d5a0c19187a6b6bf4b7ce3ac99439db21fb9e4b315861dd36bb83f2"
 }
