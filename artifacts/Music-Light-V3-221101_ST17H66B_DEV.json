@@ -1,0 +1,12 @@
+{
+  "channel": "dev",
+  "label": "WS2812 DMA wire-slot diagnostic",
+  "board": "Music-Light-V3-221101",
+  "mcu": "ST17H66B / PHY6222M005",
+  "source_branch": "debug/osal-heartbeat",
+  "source_commit": "890477dd7ab21b9458c6c606b633268f734c6bba",
+  "validation": "build-pass; hardware wire-slot mapping pending",
+  "firmware_url": "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex",
+  "size": 146512,
+  "sha256": "255f6b1e2eb196bccbcfb339869341737527508a47e5d21c4630ef22a3b2d688"
+}
