@@ -136,27 +136,31 @@ The small SRAM-only image is for early loader/GPIO bring-up, not the final BLE f
 
 BLE will require a larger validated SRAM/XIP layout and ROM-symbol contract. The external Phyplus/pvvx GCC integration is documented in [PHYPLUS_BLE.md](PHYPLUS_BLE.md).
 
-## Project development flasher
+## MELB firmware utility
 
-The repository also carries tools/rdwr_phy62x2_melb.py, a project-specific
-fork of the pvvx ROM-UART utility. The base utility attribution and permissive
-source license are preserved under tools/.
+The repository carries `tools/melb_tool.py`, a project firmware utility derived
+from the upstream PHY62x2 ROM-UART flasher. Upstream attribution and license are
+preserved under `tools/`; the project-facing command and UI use MELB naming.
 
-For fast hardware iteration the project publishes a mutable artifact/dev
-channel with fixed artifact names. --dev fetches its JSON manifest, reports
-the firmware label/source commit, downloads the fixed-name HEX, verifies its
-size and SHA-256, then uses the normal wh writer path. Development flashing
-uses 500000 baud by default.
+Remote firmware is always selected explicitly. The current development form is:
 
---monitor closes the ROM-UART session after reset and reopens the same serial
-port at 115200 8N1, streaming runtime UART until Ctrl+C. The flag can also be
-used without a flash operation as a standalone serial monitor.
+```powershell
+python melb_tool.py -p COM5 --url "<full firmware HEX URL>" --monitor
+```
 
-The dev channel is explicitly not a release or hardware-accepted image. The
-manifest identifies the exact source commit and validation label for each
-published development build.
+`--manifest-url` may provide firmware metadata, expected size and SHA-256, and
+`--sha256` may be used directly. There is no hard-coded artifact/dev or release
+URL inside the utility. A future release resolver can be added on top of this
+explicit URL contract once the release layout is fixed.
 
-The stable dev channel is refreshed by the publish-dev workflow after a
-successful build workflow run on debug/osal-heartbeat. The publisher checks out
-the exact successful source SHA, rebuilds the HappyLighting image, and updates
-the fixed-name HEX plus its manifest on artifact/dev.
+Remote flashing uses 500000 baud by default. With `--monitor`, the reset command
+is flushed at the ROM baud and the same already-open serial handle is switched
+immediately to 115200 for runtime logging. The tool does not close/reopen the
+port and does not insert the previous 350 ms delay, so early boot output is much
+less likely to be lost. Ctrl+C leaves monitor mode.
+
+The existing local ROM-UART operations remain available for local HEX/BIN
+flashing, reads/backups and erase operations.
+
+The repository may still publish CI/dev artifacts for development convenience,
+but the utility is not coupled to any particular artifact branch.

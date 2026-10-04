@@ -1,41 +1,58 @@
-# Development flasher
+# MELB Firmware Tool
 
-rdwr_phy62x2_melb.py is the project development flasher for the
-Music-Light-V3-221101 / ST17H66B target.
+`melb_tool.py` is the project firmware utility for the
+`Music-Light-V3-221101` / ST17H66B target.
 
-It is derived from pvvx/THB2 rdwr_phy62x2.py and keeps the original ROM-UART
-operations. Project additions are:
+The normal development path is explicit and URL-driven. The tool does not
+hard-code a repository artifact, branch, release, or development channel.
 
-- stable artifact/dev firmware channel;
-- manifest download before flashing;
-- firmware size and SHA-256 verification;
-- firmware/source identity printed before writing;
-- --dev shortcut using 500000 baud by default;
-- optional --monitor handoff to the runtime UART after reset;
-- standalone --monitor mode.
+Example: download and flash an explicit HEX, then immediately continue on the
+same open COM port as a 115200 runtime UART monitor:
 
-The only non-standard Python dependency is pyserial.
+```powershell
+python melb_tool.py -p COM5 --url "https://example.invalid/firmware.hex" --monitor
+```
 
-Stable development manifest:
-https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.json
+Optional verification can be supplied either directly:
 
-The manifest points at a fixed-name HEX on the same artifact/dev branch. The
-branch is a mutable development channel: its URL stays constant while the
-manifest records the exact source commit, size and SHA-256 of the current image.
+```powershell
+python melb_tool.py -p COM5 --url "https://example.invalid/firmware.hex" --sha256 <sha256> --monitor
+```
+
+or through a JSON manifest:
+
+```powershell
+python melb_tool.py -p COM5 --url "https://example.invalid/firmware.hex" --manifest-url "https://example.invalid/firmware.json" --monitor
+```
+
+If a manifest contains `firmware_url`, `--url` may be omitted. Supported
+manifest metadata includes `label`, `board`, `mcu`, `source_commit`,
+`validation`, `size`, and `sha256`.
+
+Remote flashing uses 500000 baud by default. After the ROM reset command the
+tool keeps the same serial handle open, flushes the reset command at the ROM
+baud, switches that handle directly to the runtime baud (115200 by default),
+and starts streaming immediately. There is no intentional post-reset delay or
+close/reopen cycle.
+
+Standalone monitor mode remains available:
+
+```powershell
+python melb_tool.py -p COM5 --monitor
+```
+
+The existing local ROM-UART operations (`wh`, `we`, `wf`, `rf`, etc.) remain
+available for local files, backup, erase, and low-level bring-up work.
+
+A future release resolver may provide a convenient default/latest release
+selection, but it must resolve to an explicit artifact URL/manifest rather than
+embedding a mutable development artifact in the tool.
 
 ## Attribution
 
-The base flasher is by pvvx and originates from:
+This utility is derived from the ROM-UART utility at:
+
 https://github.com/pvvx/THB2/blob/master/rdwr_phy62x2.py
 
-The upstream repository separates project source from the restricted Phyplus
-SDK. rdwr_phy62x2.py is treated as upstream source code under its permissive
-SOURCE LICENSE; the license text used for this vendored tool is preserved in
-pvvx_SOURCE_LICENSE.txt.
-
-## Dev channel publishing
-
-.github/workflows/publish-dev.yml watches successful build workflow runs from
-debug/osal-heartbeat. It checks out the exact tested source SHA, rebuilds the
-HappyLighting firmware, then updates the fixed DEV.hex and DEV.json files on
-artifact/dev. The same publisher can also be run manually for an explicit ref.
+The upstream source attribution and permissive source license used for this
+modified tool are preserved in `pvvx_SOURCE_LICENSE.txt`.
