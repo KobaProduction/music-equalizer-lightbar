@@ -117,12 +117,31 @@ static uint16_t build_diag_frame(
 
     size_t offset = 0u;
     for (size_t i = 0u; i < MELB_LED_COUNT; ++i) {
-        /* Low fixed green: wire bytes G=8, R=0, B=0[, W=0]. */
-        diag_encode_byte(8u, symbol0, symbol1, &output[offset]);
+        /*
+         * Minimum-brightness diagnostic pattern, raw channel value = 1:
+         * LEDs  0..10 = green
+         * LEDs 11..20 = red
+         * LEDs 21..31 = blue
+         *
+         * Wire order remains G,R,B[,W]. No gamma or brightness scaling.
+         */
+        uint8_t green = 0u;
+        uint8_t red = 0u;
+        uint8_t blue = 0u;
+
+        if (i < 11u) {
+            green = 1u;
+        } else if (i < 21u) {
+            red = 1u;
+        } else {
+            blue = 1u;
+        }
+
+        diag_encode_byte(green, symbol0, symbol1, &output[offset]);
         offset += 5u;
-        diag_encode_byte(0u, symbol0, symbol1, &output[offset]);
+        diag_encode_byte(red, symbol0, symbol1, &output[offset]);
         offset += 5u;
-        diag_encode_byte(0u, symbol0, symbol1, &output[offset]);
+        diag_encode_byte(blue, symbol0, symbol1, &output[offset]);
         offset += 5u;
 
         if (rgbw) {
@@ -150,7 +169,7 @@ static const char *diag_profile_name(uint8_t profile)
 
 static void log_diag_profile(void)
 {
-    LOG("MELB: LED PROFILE %u/3 %s frame=%uB repeat=20ms hold=5s\n",
+    LOG("MELB: LED PROFILE %u/3 %s frame=%uB raw=1 thirds=G11/R10/B11 repeat=20ms hold=5s\n",
         (unsigned)(diag_profile + 1u),
         diag_profile_name(diag_profile),
         (unsigned)diag_frame_sizes[diag_profile]);
@@ -644,7 +663,7 @@ bStatus_t SimpleProfile_AddService(uint32 services)
             diag_profile = 0u;
             diag_profile_ticks = 0u;
             diag_send_ticks = 0u;
-            LOG("MELB: protocol sweep 32 LEDs dim-green, 3 profiles\n");
+            LOG("MELB: protocol sweep 32 LEDs raw=1 thirds G/R/B, 3 profiles\n");
             log_diag_profile();
             (void)st17h66b_spi1_write(
                 diag_frames[diag_profile],
