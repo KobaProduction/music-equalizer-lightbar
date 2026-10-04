@@ -24,7 +24,8 @@
 enum {
     MELB_LED_COUNT = 32,
     MELB_SPI_FRAME_SIZE =
-        (MELB_LED_COUNT * WS2812B_SPI_BYTES_PER_PIXEL)
+        ((MELB_LED_COUNT + WS2812B_SPI_GUARD_PIXELS)
+            * WS2812B_SPI_BYTES_PER_PIXEL)
         + WS2812B_SPI_RESET_BYTES,
     HAPPY_ATTR_WRITE_VALUE_IDX = 2,
     HAPPY_ATTR_NOTIFY_VALUE_IDX = 4,
@@ -36,10 +37,7 @@ static uint8_t spi_frame[MELB_SPI_FRAME_SIZE];
 static int renderer_ready;
 static melb_local_controls_t local_controls;
 static uint8_t animation_phase;
-static uint8_t animation_ticks;
-static uint32_t render_count;
-static uint16_t rgb_test_ticks;
-static uint8_t rgb_test_phase;
+static uint8_t render_tick;
 
 static CONST uint8 happy_service_uuid[ATT_BT_UUID_SIZE] = {
     LO_UINT16(HAPPY_LIGHTING_SERVICE_UUID16),
@@ -195,65 +193,36 @@ static void render_state(void)
     ws2812b_clear(pixels, MELB_LED_COUNT);
 
     if (control_state.power != 0u) {
+        ws2812b_pixel_t color = {0};
+
         if (control_state.mode == HAPPY_LIGHTING_MODE_STATIC) {
-            ws2812b_pixel_t color = {
-                .red = control_state.red,
-                .green = control_state.green,
-                .blue = control_state.blue,
-            };
-            fill_pixels(scale_pixel(color, control_state.brightness));
-        } else if (control_state.mode == 0x25u) {
-            /* Calm seven-color cross fade, spatially distributed across 32 LEDs. */
-            for (size_t i = 0u; i < MELB_LED_COUNT; ++i) {
-                ws2812b_pixel_t color =
-                    wheel((uint8_t)(animation_phase + (uint8_t)(i * 8u)));
-                pixels[i] = scale_pixel(color, control_state.brightness);
-            }
-        } else if (control_state.mode >= 0x26u && control_state.mode <= 0x2Cu) {
-            const uint8_t triangle = animation_phase < 128u
-                ? (uint8_t)(animation_phase * 2u)
-                : (uint8_t)((255u - animation_phase) * 2u);
-            ws2812b_pixel_t color = fixed_mode_color(control_state.mode);
-            color = scale_pixel(color, scale_channel(control_state.brightness, triangle));
-            fill_pixels(color);
-        } else if (control_state.mode >= 0x2Du && control_state.mode <= 0x2Fu) {
-            ws2812b_pixel_t first = {0};
-            ws2812b_pixel_t second = {0};
+            color.red = control_state.red;
+            color.green = control_state.green;
+            color.blue = control_state.blue;
+        } else {
+            /*
+             * Conservative validation effect: the whole physical strip uses
+             * one uniform color. Fade globally through R -> G -> B -> R;
+             * there is no per-pixel spatial animation in this mode.
+             */
+            const uint8_t phase = animation_phase;
 
-            if (control_state.mode == 0x2Du) {
-                first.red = 255u;
-                second.green = 255u;
-            } else if (control_state.mode == 0x2Eu) {
-                first.red = 255u;
-                second.blue = 255u;
+            if (phase < 85u) {
+                const uint8_t t = (uint8_t)(phase * 3u);
+                color.red = (uint8_t)(255u - t);
+                color.green = t;
+            } else if (phase < 170u) {
+                const uint8_t t = (uint8_t)((phase - 85u) * 3u);
+                color.green = (uint8_t)(255u - t);
+                color.blue = t;
             } else {
-                first.green = 255u;
-                second.blue = 255u;
+                const uint8_t t = (uint8_t)((phase - 170u) * 3u);
+                color.blue = (uint8_t)(255u - t);
+                color.red = t;
             }
-
-            const uint8_t triangle = animation_phase < 128u
-                ? (uint8_t)(animation_phase * 2u)
-                : (uint8_t)((255u - animation_phase) * 2u);
-            fill_pixels(scale_pixel(
-                lerp_color(first, second, triangle),
-                control_state.brightness));
-        } else if (control_state.mode == 0x30u) {
-            if ((animation_phase & 0x08u) == 0u) {
-                fill_pixels(scale_pixel(
-                    wheel((uint8_t)(animation_phase * 8u)),
-                    control_state.brightness));
-            }
-        } else if (control_state.mode >= 0x31u && control_state.mode <= 0x37u) {
-            if ((animation_phase & 0x08u) == 0u) {
-                fill_pixels(scale_pixel(
-                    fixed_mode_color(control_state.mode),
-                    control_state.brightness));
-            }
-        } else if (control_state.mode == 0x38u) {
-            fill_pixels(scale_pixel(
-                wheel((uint8_t)((animation_phase >> 4u) * 36u)),
-                control_state.brightness));
         }
+
+        fill_pixels(scale_pixel(color, control_state.brightness));
     }
 
     const size_t encoded = ws2812b_spi_encode(
@@ -262,19 +231,21 @@ static void render_state(void)
         spi_frame,
         sizeof(spi_frame));
 
-    if (encoded == sizeof(spi_frame)) {
-        const int spi_result = st17h66b_spi1_write(spi_frame, encoded);
-        ++render_count;
-        if (spi_result != 0) {
-            renderer_ready = 0;
-            LOG("MELB: WS2812 SPI timeout/error=%d; renderer disabled, BLE kept alive\n",
-                spi_result);
-        } else if ((render_count % 50u) == 0u) {
-            LOG("MELB: render frame=%lu spi=0 mode=%02x power=%u\n",
-                (unsigned long)render_count, control_state.mode, control_state.power);
-        }
+    if (encoded != sizeof(spi_frame)) {
+        renderer_ready = 0;
+        LOG("MELB: WS2812 encode size=%u expected=%u; renderer disabled\n",
+            (unsigned)encoded, (unsigned)sizeof(spi_frame));
+        return;
+    }
+
+    const int spi_result = st17h66b_spi1_write(spi_frame, encoded);
+    if (spi_result != 0) {
+        renderer_ready = 0;
+        LOG("MELB: WS2812 SPI error=%d; renderer disabled, BLE kept alive\n",
+            spi_result);
     }
 }
+
 
 static void refresh_status_value(void)
 {
@@ -331,16 +302,28 @@ void melb_happylighting_local_tick(void)
 
     if (changed) {
         refresh_status_value();
-    }
-
-    if (!renderer_ready) {
+        render_state();
         return;
     }
 
-    /* Local tick is 10 ms; factory-equivalent frame repeats every 20 ms. */
-    if (++rgb_test_ticks >= 2u) {
-        rgb_test_ticks = 0u;
-        (void)st17h66b_spi1_write(spi_frame, sizeof(spi_frame));
+    if (!renderer_ready || control_state.mode == HAPPY_LIGHTING_MODE_STATIC) {
+        return;
+    }
+
+    /*
+     * Effect rendering runs at 50 Hz. The HappyLighting speed byte controls
+     * phase advance while transport cadence remains bounded.
+     */
+    if (++render_tick >= 2u) {
+        render_tick = 0u;
+
+        uint8_t step = (uint8_t)(control_state.speed >> 4u);
+        if (step == 0u) {
+            step = 1u;
+        }
+
+        animation_phase = (uint8_t)(animation_phase + step);
+        render_state();
     }
 }
 
@@ -428,7 +411,7 @@ static bStatus_t happy_write_attr(
         return ATT_ERR_INVALID_VALUE;
     }
 
-    animation_ticks = 0u;
+    render_tick = 0u;
     refresh_status_value();
     render_state();
 
@@ -503,14 +486,7 @@ bStatus_t SimpleProfile_AddService(uint32 services)
 
     melb_control_state_init(&control_state);
     animation_phase = 0u;
-    animation_ticks = 0u;
-    rgb_test_ticks = 0u;
-    rgb_test_phase = 0u;
-    control_state.brightness = 32u;
-    control_state.red = 255u;
-    control_state.green = 0u;
-    control_state.blue = 0u;
-    control_state.mode = HAPPY_LIGHTING_MODE_STATIC;
+    render_tick = 0u;
     refresh_status_value();
 
     GATTServApp_InitCharCfg(INVALID_CONNHANDLE, happy_notify_cfg);
@@ -526,37 +502,7 @@ bStatus_t SimpleProfile_AddService(uint32 services)
         (unsigned long)st17h66b_spi1_effective_baud_hz(),
         (unsigned long)WS2812B_SPI_BAUD_HZ);
     if (renderer_ready) {
-        /*
-         * Immutable factory-equivalent diagnostic payload:
-         * raw channel value 1, RGB thirds. Encoder converts RGB -> GRB and
-         * produces exactly 12 SPI bytes/pixel using recovered 1000/1110 symbols.
-         */
-        for (size_t i = 0u; i < MELB_LED_COUNT; ++i) {
-            pixels[i].red = 0u;
-            pixels[i].green = 0u;
-            pixels[i].blue = 0u;
-
-            if (i < 11u) {
-                pixels[i].green = 1u;
-            } else if (i < 21u) {
-                pixels[i].red = 1u;
-            } else {
-                pixels[i].blue = 1u;
-            }
-        }
-
-        const size_t encoded = ws2812b_spi_encode(
-            pixels, MELB_LED_COUNT, spi_frame, sizeof(spi_frame));
-
-        if (encoded == sizeof(spi_frame)) {
-            LOG("MELB: FACTORY LED contract 32px GRB 4bit[0=8,1=E] req=3MHz raw=1 G11/R10/B11 frame=%uB repeat=20ms\n",
-                (unsigned)sizeof(spi_frame));
-            (void)st17h66b_spi1_write(spi_frame, sizeof(spi_frame));
-        } else {
-            renderer_ready = 0;
-            LOG("MELB: factory LED frame build failed size=%u expected=%u\n",
-                (unsigned)encoded, (unsigned)sizeof(spi_frame));
-        }
+        render_state();
     }
 
     return GATTServApp_RegisterService(

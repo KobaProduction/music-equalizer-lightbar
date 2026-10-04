@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 
+#include "error.h"
 #include "gpio.h"
 #include "spi.h"
 
@@ -12,6 +13,7 @@ typedef uint32_t (*rom_clk_get_pclk_t)(void);
 static hal_spi_t s_spi1 = {
     .spi_index = SPI1,
 };
+static spi_Cfg_t s_spi1_cfg;
 
 static uint32_t s_spi1_baud_hz;
 static uint32_t s_spi1_pclk_hz;
@@ -47,7 +49,7 @@ int st17h66b_spi1_init_p34(uint32_t baud_hz)
         return -2;
     }
 
-    spi_Cfg_t cfg = {
+    s_spi1_cfg = (spi_Cfg_t){
         .sclk_pin = GPIO_DUMMY,
         .ssn_pin = GPIO_DUMMY,
         .MOSI = GPIO_P34,
@@ -65,7 +67,7 @@ int st17h66b_spi1_init_p34(uint32_t baud_hz)
         .evt_handler = NULL,
     };
 
-    if (hal_spi_bus_init(&s_spi1, cfg) != 0) {
+    if (hal_spi_bus_init(&s_spi1, s_spi1_cfg) != 0) {
         return -3;
     }
 
@@ -78,7 +80,7 @@ int st17h66b_spi1_write(const uint8_t *data, size_t size)
         return -1;
     }
 
-    const int result = hal_spi_transmit(
+    int result = hal_spi_transmit(
         &s_spi1,
         SPI_TXD,
         (uint8_t *)data,
@@ -86,7 +88,27 @@ int st17h66b_spi1_write(const uint8_t *data, size_t size)
         (uint16_t)size,
         0u);
 
-    if (result == 0) {
+    /*
+     * PHYplus power management deinitializes the SPI bus before sleep but
+     * keeps the SPI1 power-manager registration. Recreate the bus lazily on
+     * the first frame after wake, then retry exactly once.
+     */
+    if (result == PPlus_ERR_NOT_REGISTED) {
+        const int init_result = hal_spi_bus_init(&s_spi1, s_spi1_cfg);
+        if (init_result != PPlus_SUCCESS) {
+            return init_result;
+        }
+
+        result = hal_spi_transmit(
+            &s_spi1,
+            SPI_TXD,
+            (uint8_t *)data,
+            NULL,
+            (uint16_t)size,
+            0u);
+    }
+
+    if (result == PPlus_SUCCESS) {
         ++s_completed_frames;
     }
 

@@ -19,7 +19,9 @@ static void encode_byte(uint8_t value, uint8_t output[4])
 
 size_t ws2812b_spi_encoded_size(size_t pixel_count)
 {
-    return pixel_count * (size_t)WS2812B_SPI_BYTES_PER_PIXEL;
+    return ((pixel_count + (size_t)WS2812B_SPI_GUARD_PIXELS)
+            * (size_t)WS2812B_SPI_BYTES_PER_PIXEL)
+        + (size_t)WS2812B_SPI_RESET_BYTES;
 }
 
 size_t ws2812b_spi_encode(
@@ -38,15 +40,31 @@ size_t ws2812b_spi_encode(
 
     for (size_t i = 0u; i < pixel_count; ++i) {
         /*
-         * Recovered factory action node reads input[1], input[0], input[2]:
-         * RGB input therefore becomes GRB on the wire.
+         * Board hardware acceptance established this logical RGB -> wire
+         * mapping: R, B, G. The earlier GRB interpretation was based on the
+         * factory buffer layout rather than the repository RGB model.
          */
-        encode_byte(pixels[i].green, &output[offset]);
-        offset += 4u;
         encode_byte(pixels[i].red, &output[offset]);
         offset += 4u;
         encode_byte(pixels[i].blue, &output[offset]);
         offset += 4u;
+        encode_byte(pixels[i].green, &output[offset]);
+        offset += 4u;
+    }
+
+    /*
+     * Hardware acceptance showed that ending the valid LED symbol stream
+     * immediately after physical pixel 32 leaves the final device unstable.
+     * Emit eight black guard pixels using normal 1000 symbols before reset.
+     */
+    for (size_t guard = 0u; guard < (size_t)WS2812B_SPI_GUARD_PIXELS; ++guard) {
+        for (size_t byte = 0u; byte < (size_t)WS2812B_SPI_BYTES_PER_PIXEL; ++byte) {
+            output[offset++] = 0x88u;
+        }
+    }
+
+    for (size_t i = 0u; i < (size_t)WS2812B_SPI_RESET_BYTES; ++i) {
+        output[offset++] = 0u;
     }
 
     return offset;

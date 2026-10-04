@@ -146,7 +146,7 @@ bool melb_local_controls_tick(
     const melb_button_event_t mode_event =
         update_button(&controls->mode_speed, mode_speed_pressed);
 
-    if (power_event == MELB_BUTTON_EVENT_PRESS) {
+    if (power_event == MELB_BUTTON_EVENT_SHORT) {
         state->power = state->power == 0u ? 1u : 0u;
         changed = true;
     }
