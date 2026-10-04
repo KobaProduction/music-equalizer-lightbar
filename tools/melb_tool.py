@@ -16,6 +16,7 @@ import hashlib
 import json
 import tempfile
 import urllib.request
+import urllib.parse
 
 START_BAUD = 9600
 DEF_RUN_BAUD = 115200
@@ -620,6 +621,9 @@ def download_firmware(firmware_url=None, manifest_url=None, expected_sha256=None
 		raise FatalError("Firmware URL is required (--url or manifest firmware_url)")
 
 	print("Firmware URL:", firmware_url)
+	artifact_name = os.path.basename(urllib.parse.urlparse(firmware_url).path)
+	if artifact_name:
+		print("Artifact:", urllib.parse.unquote(artifact_name))
 	if manifest.get("label"):
 		print("Firmware:", manifest["label"])
 	if manifest.get("board"):
