@@ -83,7 +83,7 @@ elseif(MELB_VARIANT STREQUAL "ws2812b-basic")
     list(APPEND MELB_FIRMWARE_SOURCES
         examples/ws2812b_basic_main.c
         src/ws2812b_spi.c
-        src/st17h66b_spi1.c
+        examples/st17h66b_spi1_standalone.c
     )
     set(MELB_OUTPUT_BASENAME
         "music-equalizer-lightbar-${MELB_BOARD_MARKING}-${MELB_MCU}-ws2812b-basic")
