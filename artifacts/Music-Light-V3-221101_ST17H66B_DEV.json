@@ -1,10 +1,10 @@
 {
   "channel": "dev",
-  "label": "Restore final BLE and button baseline",
+  "label": "Restore HappyLighting runtime and stabilize LED control",
   "board": "Music-Light-V3-221101",
   "mcu": "ST17H66B / PHY6222M005",
   "source_branch": "feature/product-runtime",
-  "source_commit": "8890b8d42c1446fcf1fe5a971430b01fafecd53f",
+  "source_commit": "55f47a203a0d09e9a3885e7ab373bfecd9bbf7c8",
   "validation": "build-pass; hardware validation tracked separately",
   "firmware_url": "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex",
   "size": 145379,
