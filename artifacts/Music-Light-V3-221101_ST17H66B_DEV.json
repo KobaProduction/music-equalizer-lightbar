@@ -1,10 +1,10 @@
 {
   "channel": "dev",
-  "label": "Reproduce factory LED SPI contract",
+  "label": "Keep standalone WS2812 bring-up buildable",
   "board": "Music-Light-V3-221101",
   "mcu": "ST17H66B / PHY6222M005",
   "source_branch": "debug/osal-heartbeat",
-  "source_commit": "710c98281333e61224ca7799f9f393af9590fd0f",
+  "source_commit": "4ce04e24a2eeda0823fb4b41c2793cf462202d2e",
   "validation": "build-pass; hardware validation tracked separately",
   "firmware_url": "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex",
   "size": 148799,
