@@ -99,3 +99,14 @@ The HappyLighting/Triones compatibility contract is based on independently docum
 - https://github.com/sysofwan/ha-triones
 
 No source from those clients/integrations is copied into the firmware. The repository-owned implementation uses the documented UUIDs and wire-level command semantics for interoperability.
+
+## Vendored pvvx ROM-UART flasher
+
+The file tools/rdwr_phy62x2_melb.py is a modified copy of pvvx/THB2
+rdwr_phy62x2.py. The upstream file is source material covered by the permissive
+SOURCE LICENSE published in the THB2 repository; that license text and original
+author attribution are preserved in tools/pvvx_SOURCE_LICENSE.txt.
+
+The project modifications add only development-channel download/verification
+and UART-monitor workflow around the existing ROM-UART flasher. No Phyplus SDK
+source is copied into this tool.

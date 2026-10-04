@@ -135,3 +135,23 @@ These checks prove internal image consistency only.
 The small SRAM-only image is for early loader/GPIO bring-up, not the final BLE firmware.
 
 BLE will require a larger validated SRAM/XIP layout and ROM-symbol contract. The external Phyplus/pvvx GCC integration is documented in [PHYPLUS_BLE.md](PHYPLUS_BLE.md).
+
+## Project development flasher
+
+The repository also carries tools/rdwr_phy62x2_melb.py, a project-specific
+fork of the pvvx ROM-UART utility. The base utility attribution and permissive
+source license are preserved under tools/.
+
+For fast hardware iteration the project publishes a mutable artifact/dev
+channel with fixed artifact names. --dev fetches its JSON manifest, reports
+the firmware label/source commit, downloads the fixed-name HEX, verifies its
+size and SHA-256, then uses the normal wh writer path. Development flashing
+uses 500000 baud by default.
+
+--monitor closes the ROM-UART session after reset and reopens the same serial
+port at 115200 8N1, streaming runtime UART until Ctrl+C. The flag can also be
+used without a flash operation as a standalone serial monitor.
+
+The dev channel is explicitly not a release or hardware-accepted image. The
+manifest identifies the exact source commit and validation label for each
+published development build.
