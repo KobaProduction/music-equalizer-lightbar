@@ -1,12 +1,12 @@
 {
   "channel": "dev",
-  "label": "Probe raw WS2812 colour slots",
+  "label": "Prepare WS2812 scope diagnostic and quiet BLE logs",
   "board": "Music-Light-V3-221101",
   "mcu": "ST17H66B / PHY6222M005",
   "source_branch": "debug/osal-heartbeat",
-  "source_commit": "890477dd7ab21b9458c6c606b633268f734c6bba",
+  "source_commit": "70c0a5dd447b0907fee3bf7dfd9a5037933ddb2c",
   "validation": "build-pass; hardware validation tracked separately",
   "firmware_url": "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex",
-  "size": 146512,
-  "sha256": "1dd3990b23f932d80cd4326ceca463ad3b2a6b8248705e643b42aa40505abc52"
+  "size": 146790,
+  "sha256": "80cfae95e0466a1ccd8a1f2c26ebc0838ff134a500a7fb38385a383b800a8027"
 }
