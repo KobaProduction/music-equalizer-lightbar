@@ -335,37 +335,25 @@ void melb_happylighting_local_tick(void)
         refresh_status_value();
     }
 
-    /*
-     * Hardware bring-up pattern: SLOT0/OFF/SLOT1/OFF/SLOT2/OFF at 500 ms
-     * per phase. This identifies the physical colour behind each transmitted
-     * byte without assuming a GRB/RGB/BRG order.
-     */
-    if (++rgb_test_ticks < 50u) {
+    if (++rgb_test_ticks < 200u) {
         return;
     }
     rgb_test_ticks = 0u;
 
-    /*
-     * Raw wire-slot probe. ws2812b_spi_encode() currently serializes fields as
-     * [green, red, blue], so SLOT0/SLOT1/SLOT2 intentionally address those
-     * three transmitted bytes without claiming a physical colour identity.
-     */
-    ws2812b_pixel_t probe = {0};
-    const uint8_t wire_level = gamma_correct(32u);
-    const char *phase_name = "OFF";
+    memset(pixels, 0, sizeof(pixels));
 
-    if (rgb_test_phase == 0u) {
-        probe.green = wire_level; /* transmitted byte 0 */
-        phase_name = "SLOT0";
+    uint8_t raw_pattern = 0x00u;
+    const char *phase_name = "ZERO";
+    if (rgb_test_phase == 1u) {
+        raw_pattern = 0xffu;
+        phase_name = "ONES";
     } else if (rgb_test_phase == 2u) {
-        probe.red = wire_level;   /* transmitted byte 1 */
-        phase_name = "SLOT1";
-    } else if (rgb_test_phase == 4u) {
-        probe.blue = wire_level;  /* transmitted byte 2 */
-        phase_name = "SLOT2";
+        raw_pattern = 0xaau;
+        phase_name = "ALT";
     }
 
-    fill_pixels(probe);
+    pixels[0].green = raw_pattern;
+
     const size_t encoded = ws2812b_spi_encode(
         pixels, MELB_LED_COUNT, spi_frame, sizeof(spi_frame));
     int spi_result = -1;
@@ -373,11 +361,11 @@ void melb_happylighting_local_tick(void)
         spi_result = st17h66b_spi1_write(spi_frame, encoded);
     }
 
-    LOG("MELB: wire test %s raw=%u dma_done=%lu spi=%d\n",
-        phase_name, wire_level,
+    LOG("MELB: scope phase=%s byte0=0x%02x dma_done=%lu spi=%d\n",
+        phase_name, raw_pattern,
         (unsigned long)st17h66b_spi1_completed_frames(), spi_result);
 
-    rgb_test_phase = (uint8_t)((rgb_test_phase + 1u) % 6u);
+    rgb_test_phase = (uint8_t)((rgb_test_phase + 1u) % 3u);
 }
 
 static uint8 happy_read_attr(
