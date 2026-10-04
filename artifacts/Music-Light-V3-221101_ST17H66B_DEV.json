@@ -1,12 +1,12 @@
 {
   "channel": "dev",
-  "label": "Increase HappyLighting advertising cadence",
+  "label": "Improve BLE discovery and restore SPI after sleep",
   "board": "Music-Light-V3-221101",
   "mcu": "ST17H66B / PHY6222M005",
   "source_branch": "feature/product-runtime",
-  "source_commit": "8bf6aab37ffb6a010b9680b65927b81dfb3896b0",
+  "source_commit": "9f455bbd8233da190537f37f343324a1696e11f6",
   "validation": "build-pass; hardware validation tracked separately",
   "firmware_url": "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex",
-  "size": 146618,
-  "sha256": "5a99452d2655145aa5c52cf1b73b93a48bd8e5061aa15db49d7e69bed2a73065"
+  "size": 146737,
+  "sha256": "caef4d28e2484314d279f783849801b07d22c59cf5c842cb333abe2b7956a6d9"
 }
