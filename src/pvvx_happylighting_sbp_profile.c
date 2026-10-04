@@ -26,6 +26,9 @@ enum {
     MELB_SPI_FRAME_SIZE =
         (MELB_LED_COUNT * WS2812B_SPI_BYTES_PER_PIXEL)
         + WS2812B_SPI_RESET_BYTES,
+    MELB_DIAG_PROFILE_COUNT = 3,
+    MELB_DIAG_MAX_FRAME_SIZE =
+        (MELB_LED_COUNT * 20u) + WS2812B_SPI_RESET_BYTES,
     HAPPY_ATTR_WRITE_VALUE_IDX = 2,
     HAPPY_ATTR_NOTIFY_VALUE_IDX = 4,
 };
@@ -40,6 +43,11 @@ static uint8_t animation_ticks;
 static uint32_t render_count;
 static uint16_t rgb_test_ticks;
 static uint8_t rgb_test_phase;
+static uint8_t diag_frames[MELB_DIAG_PROFILE_COUNT][MELB_DIAG_MAX_FRAME_SIZE];
+static uint16_t diag_frame_sizes[MELB_DIAG_PROFILE_COUNT];
+static uint16_t diag_profile_ticks;
+static uint8_t diag_send_ticks;
+static uint8_t diag_profile;
 
 static CONST uint8 happy_service_uuid[ATT_BT_UUID_SIZE] = {
     LO_UINT16(HAPPY_LIGHTING_SERVICE_UUID16),
@@ -69,6 +77,84 @@ static CONST uint8 happy_notify_props =
 static uint8 happy_write_value[20];
 static uint8 happy_notify_value[HAPPY_LIGHTING_STATUS_SIZE];
 static gattCharCfg_t happy_notify_cfg[GATT_MAX_NUM_CONN];
+
+
+static void diag_encode_byte(
+    uint8_t value,
+    uint8_t symbol0,
+    uint8_t symbol1,
+    uint8_t output[5])
+{
+    uint64_t encoded = 0u;
+
+    for (uint8_t bit = 0u; bit < 8u; ++bit) {
+        const uint8_t mask = (uint8_t)(UINT8_C(0x80) >> bit);
+        const uint8_t symbol = (value & mask) != 0u ? symbol1 : symbol0;
+        encoded = (encoded << 5u) | (uint64_t)symbol;
+    }
+
+    output[0] = (uint8_t)(encoded >> 32u);
+    output[1] = (uint8_t)(encoded >> 24u);
+    output[2] = (uint8_t)(encoded >> 16u);
+    output[3] = (uint8_t)(encoded >> 8u);
+    output[4] = (uint8_t)encoded;
+}
+
+static uint16_t build_diag_frame(
+    uint8_t *output,
+    size_t output_size,
+    uint8_t symbol0,
+    uint8_t symbol1,
+    bool rgbw)
+{
+    const size_t bytes_per_pixel = rgbw ? 20u : 15u;
+    const size_t required =
+        (MELB_LED_COUNT * bytes_per_pixel) + WS2812B_SPI_RESET_BYTES;
+
+    if (output == NULL || output_size < required) {
+        return 0u;
+    }
+
+    size_t offset = 0u;
+    for (size_t i = 0u; i < MELB_LED_COUNT; ++i) {
+        /* Low fixed green: wire bytes G=8, R=0, B=0[, W=0]. */
+        diag_encode_byte(8u, symbol0, symbol1, &output[offset]);
+        offset += 5u;
+        diag_encode_byte(0u, symbol0, symbol1, &output[offset]);
+        offset += 5u;
+        diag_encode_byte(0u, symbol0, symbol1, &output[offset]);
+        offset += 5u;
+
+        if (rgbw) {
+            diag_encode_byte(0u, symbol0, symbol1, &output[offset]);
+            offset += 5u;
+        }
+    }
+
+    memset(&output[offset], 0, WS2812B_SPI_RESET_BYTES);
+    offset += WS2812B_SPI_RESET_BYTES;
+    return (uint16_t)offset;
+}
+
+static const char *diag_profile_name(uint8_t profile)
+{
+    switch (profile) {
+    case 0u:
+        return "P1 WS2812B-class 24-bit GRB T0H=500ns T1H=750ns";
+    case 1u:
+        return "P2 WS2812B-2020/SK6812 24-bit GRB T0H=250ns T1H=750ns";
+    default:
+        return "P3 SK6812 RGBW 32-bit GRBW T0H=250ns T1H=750ns";
+    }
+}
+
+static void log_diag_profile(void)
+{
+    LOG("MELB: LED PROFILE %u/3 %s frame=%uB repeat=20ms hold=5s\n",
+        (unsigned)(diag_profile + 1u),
+        diag_profile_name(diag_profile),
+        (unsigned)diag_frame_sizes[diag_profile]);
+}
 
 static uint8_t gamma_correct(uint8_t linear)
 {
@@ -329,24 +415,26 @@ void melb_happylighting_local_tick(void)
         !hal_gpio_read(GPIO_P07));
 
     if (changed) {
-        LOG("MELB: buttons power=%u mode=%02x bright=%u speed=%u rgb=%u,%u,%u\n",
-            control_state.power, control_state.mode, control_state.brightness,
-            control_state.speed, control_state.red, control_state.green, control_state.blue);
         refresh_status_value();
     }
 
-    /*
-     * Hardware transport test: spi_frame is built exactly once at init and is
-     * never modified afterwards. Re-submit the same immutable DMA payload every
-     * 20 ms. This isolates SPI1 + DMA + P34 + WS2812 from rendering logic.
-     */
-    if (++rgb_test_ticks < 2u) {
+    if (!renderer_ready) {
         return;
     }
-    rgb_test_ticks = 0u;
 
-    if (renderer_ready) {
-        (void)st17h66b_spi1_write(spi_frame, sizeof(spi_frame));
+    /* Local tick is 10 ms: submit the immutable active profile every 20 ms. */
+    if (++diag_send_ticks >= 2u) {
+        diag_send_ticks = 0u;
+        (void)st17h66b_spi1_write(
+            diag_frames[diag_profile],
+            diag_frame_sizes[diag_profile]);
+    }
+
+    /* Hold each candidate protocol for 5 seconds, then rotate. */
+    if (++diag_profile_ticks >= 500u) {
+        diag_profile_ticks = 0u;
+        diag_profile = (uint8_t)((diag_profile + 1u) % MELB_DIAG_PROFILE_COUNT);
+        log_diag_profile();
     }
 }
 
@@ -533,27 +621,36 @@ bStatus_t SimpleProfile_AddService(uint32 services)
         (unsigned long)WS2812B_SPI_BAUD_HZ);
     if (renderer_ready) {
         /*
-         * Build one immutable diagnostic frame once:
-         * all 32 LEDs = dim green (raw G=8, R=0, B=0), followed by reset LOW.
-         * The local tick only re-submits this exact byte buffer.
+         * Pre-build all three candidate wire formats once. During the test no
+         * renderer, gamma, animation or per-frame encoder touches these bytes.
          */
-        for (size_t i = 0u; i < MELB_LED_COUNT; ++i) {
-            pixels[i].red = 0u;
-            pixels[i].green = 8u;
-            pixels[i].blue = 0u;
+        diag_frame_sizes[0] = build_diag_frame(
+            diag_frames[0], sizeof(diag_frames[0]),
+            UINT8_C(0x18), UINT8_C(0x1c), false);
+        diag_frame_sizes[1] = build_diag_frame(
+            diag_frames[1], sizeof(diag_frames[1]),
+            UINT8_C(0x10), UINT8_C(0x1c), false);
+        diag_frame_sizes[2] = build_diag_frame(
+            diag_frames[2], sizeof(diag_frames[2]),
+            UINT8_C(0x10), UINT8_C(0x1c), true);
+
+        for (uint8_t i = 0u; i < MELB_DIAG_PROFILE_COUNT; ++i) {
+            if (diag_frame_sizes[i] == 0u) {
+                renderer_ready = 0;
+            }
         }
 
-        const size_t encoded = ws2812b_spi_encode(
-            pixels, MELB_LED_COUNT, spi_frame, sizeof(spi_frame));
-
-        if (encoded == sizeof(spi_frame)) {
-            LOG("MELB: static WS2812 DMA test 32 LEDs dim-green repeat=20ms frame=%u bytes\n",
-                (unsigned)sizeof(spi_frame));
-            (void)st17h66b_spi1_write(spi_frame, sizeof(spi_frame));
+        if (renderer_ready) {
+            diag_profile = 0u;
+            diag_profile_ticks = 0u;
+            diag_send_ticks = 0u;
+            LOG("MELB: protocol sweep 32 LEDs dim-green, 3 profiles\n");
+            log_diag_profile();
+            (void)st17h66b_spi1_write(
+                diag_frames[diag_profile],
+                diag_frame_sizes[diag_profile]);
         } else {
-            renderer_ready = 0;
-            LOG("MELB: static WS2812 test encode failed size=%u expected=%u\n",
-                (unsigned)encoded, (unsigned)sizeof(spi_frame));
+            LOG("MELB: protocol sweep frame build failed\n");
         }
     }
 
