@@ -335,37 +335,18 @@ void melb_happylighting_local_tick(void)
         refresh_status_value();
     }
 
-    uint8_t raw_pattern = 0x00u;
-    const char *phase_name = "ZERO";
-    if (rgb_test_phase == 1u) {
-        raw_pattern = 0xffu;
-        phase_name = "ONES";
-    } else if (rgb_test_phase == 2u) {
-        raw_pattern = 0xaau;
-        phase_name = "ALT";
+    /*
+     * Hardware transport test: spi_frame is built exactly once at init and is
+     * never modified afterwards. Re-submit the same immutable DMA payload every
+     * 20 ms. This isolates SPI1 + DMA + P34 + WS2812 from rendering logic.
+     */
+    if (++rgb_test_ticks < 2u) {
+        return;
     }
+    rgb_test_ticks = 0u;
 
-    if (rgb_test_ticks == 0u) {
-        LOG("MELB: scope phase=%s byte0=0x%02x repeat=20ms hold=3s\n",
-            phase_name, raw_pattern);
-    }
-
-    ++rgb_test_ticks;
-
-    if ((rgb_test_ticks & 1u) == 0u) {
-        memset(pixels, 0, sizeof(pixels));
-        pixels[0].green = raw_pattern;
-
-        const size_t encoded = ws2812b_spi_encode(
-            pixels, MELB_LED_COUNT, spi_frame, sizeof(spi_frame));
-        if (encoded == sizeof(spi_frame)) {
-            (void)st17h66b_spi1_write(spi_frame, encoded);
-        }
-    }
-
-    if (rgb_test_ticks >= 300u) {
-        rgb_test_ticks = 0u;
-        rgb_test_phase = (uint8_t)((rgb_test_phase + 1u) % 3u);
+    if (renderer_ready) {
+        (void)st17h66b_spi1_write(spi_frame, sizeof(spi_frame));
     }
 }
 
@@ -551,13 +532,29 @@ bStatus_t SimpleProfile_AddService(uint32 services)
         (unsigned long)st17h66b_spi1_effective_baud_hz(),
         (unsigned long)WS2812B_SPI_BAUD_HZ);
     if (renderer_ready) {
-        const uint8_t boot_power = control_state.power;
-        control_state.power = 0u;
-        render_state();
-        control_state.power = boot_power;
-        render_state();
-        LOG("MELB: boot RGB diagnostic RED brightness=%u gamma_out=%u dma=1\n",
-            control_state.brightness, gamma_correct(control_state.brightness));
+        /*
+         * Build one immutable diagnostic frame once:
+         * all 32 LEDs = dim green (raw G=8, R=0, B=0), followed by reset LOW.
+         * The local tick only re-submits this exact byte buffer.
+         */
+        for (size_t i = 0u; i < MELB_LED_COUNT; ++i) {
+            pixels[i].red = 0u;
+            pixels[i].green = 8u;
+            pixels[i].blue = 0u;
+        }
+
+        const size_t encoded = ws2812b_spi_encode(
+            pixels, MELB_LED_COUNT, spi_frame, sizeof(spi_frame));
+
+        if (encoded == sizeof(spi_frame)) {
+            LOG("MELB: static WS2812 DMA test 32 LEDs dim-green repeat=20ms frame=%u bytes\n",
+                (unsigned)sizeof(spi_frame));
+            (void)st17h66b_spi1_write(spi_frame, sizeof(spi_frame));
+        } else {
+            renderer_ready = 0;
+            LOG("MELB: static WS2812 test encode failed size=%u expected=%u\n",
+                (unsigned)encoded, (unsigned)sizeof(spi_frame));
+        }
     }
 
     return GATTServApp_RegisterService(
