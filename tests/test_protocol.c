@@ -38,21 +38,50 @@ static void test_ws2812b_spi_encoding(void)
         .green = 0xffu,
         .blue = 0xffu,
     };
+    const ws2812b_pixel_t probe = {
+        .red = 0xffu,
+        .green = 0x00u,
+        .blue = 0x00u,
+    };
 
-    uint8_t black_encoded[WS2812B_SPI_BYTES_PER_PIXEL] = {0};
-    uint8_t white_encoded[WS2812B_SPI_BYTES_PER_PIXEL] = {0};
+    uint8_t black_encoded[((1u + WS2812B_SPI_GUARD_PIXELS) * WS2812B_SPI_BYTES_PER_PIXEL) + WS2812B_SPI_RESET_BYTES] = {0};
+    uint8_t white_encoded[((1u + WS2812B_SPI_GUARD_PIXELS) * WS2812B_SPI_BYTES_PER_PIXEL) + WS2812B_SPI_RESET_BYTES] = {0};
+    uint8_t probe_encoded[((1u + WS2812B_SPI_GUARD_PIXELS) * WS2812B_SPI_BYTES_PER_PIXEL) + WS2812B_SPI_RESET_BYTES] = {0};
 
     assert(ws2812b_spi_encode(
         &black, 1u, black_encoded, sizeof(black_encoded)) == sizeof(black_encoded));
     assert(ws2812b_spi_encode(
         &white, 1u, white_encoded, sizeof(white_encoded)) == sizeof(white_encoded));
+    assert(ws2812b_spi_encode(
+        &probe, 1u, probe_encoded, sizeof(probe_encoded)) == sizeof(probe_encoded));
 
-    for (size_t i = 0u; i < sizeof(black_encoded); ++i) {
+    for (size_t i = 0u; i < WS2812B_SPI_BYTES_PER_PIXEL; ++i) {
         assert(black_encoded[i] == 0x88u);
         assert(white_encoded[i] == 0xeeu);
     }
 
-    assert(ws2812b_spi_encoded_size(32u) == 384u);
+    /* RBG wire order: red occupies the first encoded color slot. */
+    for (size_t i = 0u; i < 4u; ++i) {
+        assert(probe_encoded[i] == 0xeeu);
+    }
+    for (size_t i = 4u; i < WS2812B_SPI_BYTES_PER_PIXEL; ++i) {
+        assert(probe_encoded[i] == 0x88u);
+    }
+
+    const size_t guard_start = WS2812B_SPI_BYTES_PER_PIXEL;
+    const size_t reset_start = guard_start
+        + (WS2812B_SPI_GUARD_PIXELS * WS2812B_SPI_BYTES_PER_PIXEL);
+
+    for (size_t i = guard_start; i < reset_start; ++i) {
+        assert(probe_encoded[i] == 0x88u);
+    }
+    for (size_t i = reset_start; i < sizeof(probe_encoded); ++i) {
+        assert(probe_encoded[i] == 0u);
+    }
+
+    assert(ws2812b_spi_encoded_size(32u)
+        == ((32u + WS2812B_SPI_GUARD_PIXELS) * WS2812B_SPI_BYTES_PER_PIXEL)
+            + WS2812B_SPI_RESET_BYTES);
 }
 
 
@@ -141,8 +170,13 @@ static void test_local_buttons(void)
     melb_control_state_init(&state);
     melb_local_controls_init(&controls);
 
+    /* Power toggles only after a debounced short click completes. */
     run_button_ticks(&controls, &state, true, false, false, 5u);
+    assert(state.power == 1u);
+    run_button_ticks(&controls, &state, false, false, false, 5u);
     assert(state.power == 0u);
+
+    /* A long Power hold is not interpreted as another toggle. */
     run_button_ticks(
         &controls,
         &state,

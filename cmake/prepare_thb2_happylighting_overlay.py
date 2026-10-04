@@ -98,7 +98,7 @@ def main() -> None:
         main_text,
         "\t\tset_mac();",
         "\t\tset_mac();\n\t\tgapRole_AdvertDataLen = 7;\n\t\tgapRole_AdvertData[0] = 2;\n\t\tgapRole_AdvertData[1] = GAP_ADTYPE_FLAGS;\n\t\tgapRole_AdvertData[2] = GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED;\n\t\tgapRole_AdvertData[3] = 3;\n\t\tgapRole_AdvertData[4] = GAP_ADTYPE_16BIT_COMPLETE;\n\t\tgapRole_AdvertData[5] = LO_UINT16(HAPPY_LIGHTING_SERVICE_UUID16);\n\t\tgapRole_AdvertData[6] = HI_UINT16(HAPPY_LIGHTING_SERVICE_UUID16);\n\t\tLOG(\"MELB: BLE name=%s\\n\", &gapRole_ScanRspData[2]);\n\t\tLOG(\"MELB: adv interval units=%u\\n\", (unsigned)(cfg.advertising_interval * 100));\n\t\tLOG(\"MELB: adv data=%02x %02x %02x %02x %02x %02x %02x\\n\", gapRole_AdvertData[0], gapRole_AdvertData[1], gapRole_AdvertData[2], gapRole_AdvertData[3], gapRole_AdvertData[4], gapRole_AdvertData[5], gapRole_AdvertData[6]);",
-        "log BLE identity",
+        "restore known-good HappyLighting advertising identity",
     )
     main_text = replace_once(
         main_text,
@@ -115,15 +115,15 @@ def main() -> None:
     main_text = replace_once(
         main_text,
         "\tif ( events & ADV_BROADCAST_EVT) {\n\t\tadv_measure();\n\t\tLOG(\"advN%u\\n\", adv_wrk.meas_count);",
-        "\tif ( events & ADV_BROADCAST_EVT) {\n\t\t++adv_wrk.meas_count;\n\t\t++melb_adv_total;\n\t\t++melb_adv_since_report;\n\t\tif (!melb_adv_first_logged) {\n\t\t\tmelb_adv_first_logged = 1;\n\t\t\tLOG(\"MELB: advertising first event\\n\");\n\t\t}",
-        "replace per-event advertising logs with counters",
+        "\tif ( events & ADV_BROADCAST_EVT) {\n\t\t++adv_wrk.meas_count;\n\t\tLOG(\"advN%u\\n\", adv_wrk.meas_count);",
+        "restore per-event advertising diagnostics",
     )
     header_path = output / "source" / "thb2_main.h"
     header_text = header_path.read_text(encoding="utf-8")
     header_text = replace_once(
         header_text,
         "#define LCD_TIMER_EVT         0x0400  // Timer related to display sleep and key long press feature expired",
-        "#define LCD_TIMER_EVT         0x0400  // Timer related to display sleep and key long press feature expired\n#define MELB_LOCAL_CONTROL_EVT  0x0800  // Music-Light-V3 local buttons/animation tick\n#define MELB_HEARTBEAT_EVT      0x1000  // 1 Hz runtime liveness diagnostic",
+        "#define LCD_TIMER_EVT         0x0400  // Timer related to display sleep and key long press feature expired\n#define MELB_LOCAL_CONTROL_EVT  0x0800  // Music-Light-V3 local buttons/animation tick",
         "reserve local-control OSAL event",
     )
     header_path.write_text(header_text, encoding="utf-8")
@@ -131,19 +131,19 @@ def main() -> None:
     main_text = replace_once(
         main_text,
         '#include "sbp_profile.h"',
-        '#include "sbp_profile.h"\n#include "happylighting.h"\n\nstatic uint32_t melb_adv_total = 0;\nstatic uint32_t melb_adv_since_report = 0;\nstatic uint8_t melb_adv_first_logged = 0;\n\nextern void melb_happylighting_local_init(void);\nextern void melb_happylighting_local_tick(void);',
+        '#include "sbp_profile.h"\n#include "happylighting.h"\n\nextern void melb_happylighting_local_init(void);\nextern void melb_happylighting_local_tick(void);',
         "declare local-control hooks",
     )
     main_text = replace_once(
         main_text,
         "SimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile",
-        "LOG(\"MELB: register HappyLighting FFD5/FFD9/FFD4\\n\");\n\tSimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile\n\tmelb_happylighting_local_init();\n\tosal_start_reload_timer(simpleBLEPeripheral_TaskID, MELB_LOCAL_CONTROL_EVT, 10);\n\tosal_start_reload_timer(simpleBLEPeripheral_TaskID, MELB_HEARTBEAT_EVT, 1000);",
+        "LOG(\"MELB: register HappyLighting FFD5/FFD9/FFD4\\n\");\n\tSimpleProfile_AddService( GATT_ALL_SERVICES );\t\t//\tSimple GATT Profile\n\tmelb_happylighting_local_init();\n\tosal_start_reload_timer(simpleBLEPeripheral_TaskID, MELB_LOCAL_CONTROL_EVT, 10);",
         "start local-control timer",
     )
     main_text = replace_once(
         main_text,
         "\tif(events & SBP_CMDDATA) {",
-        "\tif(events & MELB_HEARTBEAT_EVT) {\n\t\tstatic uint32_t melb_heartbeat = 0;\n\t\t++melb_heartbeat;\n\t\tif ((melb_heartbeat % 10u) == 0u) {\n\t\t\tLOG(\"MELB: 10s stats heartbeat=%lu adv_sent=%lu adv_total=%lu gap=%u adv=%u\\n\", (unsigned long)melb_heartbeat, (unsigned long)melb_adv_since_report, (unsigned long)melb_adv_total, gapProfileState, gapRole_AdvEnabled);\n\t\t\tmelb_adv_since_report = 0;\n\t\t}\n\t\treturn(events ^ MELB_HEARTBEAT_EVT);\n\t}\n\tif(events & MELB_LOCAL_CONTROL_EVT) {\n\t\tmelb_happylighting_local_tick();\n\t\treturn(events ^ MELB_LOCAL_CONTROL_EVT);\n\t}\n\tif(events & SBP_CMDDATA) {",
+        "\tif(events & MELB_LOCAL_CONTROL_EVT) {\n\t\tmelb_happylighting_local_tick();\n\t\treturn(events ^ MELB_LOCAL_CONTROL_EVT);\n\t}\n\tif(events & SBP_CMDDATA) {",
         "local-control event handler",
     )
     main_path.write_text(main_text, encoding="utf-8")
@@ -153,7 +153,7 @@ def main() -> None:
     config_c = replace_once(
         config_c,
         "void load_eep_config(void) {\n\tif(!flash_supported_eep_ver(0, APP_VERSION)) {",
-        "void load_eep_config(void) {\n\t/* MELB bring-up: ignore incompatible factory application config bytes. */\n\tmemcpy(&cfg, &def_cfg, sizeof(cfg));\n\tcfg.advertising_interval = 32; /* 32 * 62.5 ms = 2000 ms */\n\tcfg.connect_latency = 0;\n\tcfg.batt_interval = 60;\n\ttest_config();\n\treturn;\n#if 0\n\tif(!flash_supported_eep_ver(0, APP_VERSION)) {",
+        "void load_eep_config(void) {\n\t/* MELB bring-up: ignore incompatible factory application config bytes. */\n\tmemcpy(&cfg, &def_cfg, sizeof(cfg));\n\tcfg.advertising_interval = 2; /* 2 * 100 * 0.625 ms = 125 ms */\n\tcfg.connect_latency = 0;\n\tcfg.batt_interval = 60;\n\ttest_config();\n\treturn;\n#if 0\n\tif(!flash_supported_eep_ver(0, APP_VERSION)) {",
         "force safe RAM config defaults",
     )
     config_c = replace_once(
@@ -194,6 +194,7 @@ def main() -> None:
         project / "src" / "pvvx_happylighting_sbp_profile.c",
         output / "source" / "sbp_profile.c",
     )
+
 
     makefile_path = output / "Makefile"
     makefile = makefile_path.read_text(encoding="utf-8")
