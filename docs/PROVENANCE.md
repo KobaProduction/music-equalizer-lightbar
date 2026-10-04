@@ -107,6 +107,7 @@ rdwr_phy62x2.py. The upstream file is source material covered by the permissive
 SOURCE LICENSE published in the THB2 repository; that license text and original
 author attribution are preserved in tools/UPSTREAM_LICENSE.txt.
 
-The project modifications add only development-channel download/verification
-and UART-monitor workflow around the existing ROM-UART flasher. No Phyplus SDK
-source is copied into this tool.
+The project modifications wrap the upstream ROM-UART implementation in a
+project-owned high-level CLI for local/remote flashing, optional manifest and
+SHA-256 verification, complete Flash dumps, chip information, and runtime UART
+monitoring. No Phyplus SDK source is copied into this tool.
