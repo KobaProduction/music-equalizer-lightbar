@@ -1,12 +1,12 @@
 {
   "channel": "dev",
-  "label": "Use uniform RGB fade for LED validation",
+  "label": "Isolate LED transport from BLE and buttons",
   "board": "Music-Light-V3-221101",
   "mcu": "ST17H66B / PHY6222M005",
   "source_branch": "feature/product-runtime",
-  "source_commit": "0bb181e64bf5270ac7cd1805f3b0425d9ba9684d",
+  "source_commit": "bbf5232013b0d2daef4961dbb698c42d3660290c",
   "validation": "build-pass; hardware validation tracked separately",
   "firmware_url": "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex",
-  "size": 145379,
-  "sha256": "264ea1b390487127dc5bcfe54169c83f63e58d42a521e128ad4da9697fdb5799"
+  "size": 129314,
+  "sha256": "2b90992e40ce4be67d83624c32d69fe2881c2a19fea5e06fc5bdde1938f56029"
 }
