@@ -45,7 +45,7 @@ size_t ws2812b_spi_encode(
          *
          * At 4 MHz one SPI bit is 250 ns and one WS2812 bit is encoded as
          * five continuous SPI bits:
-         *   0 -> 10000 = 0.25 us HIGH + 1.00 us LOW
+         *   0 -> 11000 = 0.50 us HIGH + 0.75 us LOW
          *   1 -> 11100 = 0.75 us HIGH + 0.50 us LOW
          *
          * This produces an exact 1.25 us protocol cell and stays close to

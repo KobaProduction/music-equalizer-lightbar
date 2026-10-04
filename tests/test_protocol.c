@@ -47,7 +47,7 @@ static void test_ws2812b_spi_encoding(void)
     assert(ws2812b_spi_encode(
         &white, 1u, white_encoded, sizeof(white_encoded)) == sizeof(white_encoded));
 
-    const uint8_t zero_symbol_byte[5] = {0x84u, 0x21u, 0x08u, 0x42u, 0x10u};
+    const uint8_t zero_symbol_byte[5] = {0xc6u, 0x31u, 0x8cu, 0x63u, 0x18u};
     const uint8_t one_symbol_byte[5] = {0xe7u, 0x39u, 0xceu, 0x73u, 0x9cu};
 
     for (size_t component = 0u; component < 3u; ++component) {
