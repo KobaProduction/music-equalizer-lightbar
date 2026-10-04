@@ -155,3 +155,8 @@ used without a flash operation as a standalone serial monitor.
 The dev channel is explicitly not a release or hardware-accepted image. The
 manifest identifies the exact source commit and validation label for each
 published development build.
+
+The stable dev channel is refreshed by the publish-dev workflow after a
+successful build workflow run on debug/osal-heartbeat. The publisher checks out
+the exact successful source SHA, rebuilds the HappyLighting image, and updates
+the fixed-name HEX plus its manifest on artifact/dev.

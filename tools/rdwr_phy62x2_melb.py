@@ -33,7 +33,7 @@ PHY_FLASH_ADDR = 0x11000000
 PHY_SRAM_ADDR = 0x1fff0000
 
 __progname__ = 'PHY62x2/ST17H66B/TG7100B Utility'
-__filename__ = 'rdwr_phy62x2.py'
+__filename__ = 'rdwr_phy62x2_melb.py'
 __version__ = "08.02.25-melb.1"
 
 DEV_MANIFEST_URL = (

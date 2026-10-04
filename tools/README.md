@@ -32,3 +32,10 @@ The upstream repository separates project source from the restricted Phyplus
 SDK. rdwr_phy62x2.py is treated as upstream source code under its permissive
 SOURCE LICENSE; the license text used for this vendored tool is preserved in
 pvvx_SOURCE_LICENSE.txt.
+
+## Dev channel publishing
+
+.github/workflows/publish-dev.yml watches successful build workflow runs from
+debug/osal-heartbeat. It checks out the exact tested source SHA, rebuilds the
+HappyLighting firmware, then updates the fixed DEV.hex and DEV.json files on
+artifact/dev. The same publisher can also be run manually for an explicit ref.
