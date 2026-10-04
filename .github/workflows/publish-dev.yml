@@ -1,0 +1,125 @@
+name: publish-dev
+
+on:
+  workflow_run:
+    workflows:
+      - build
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Source ref to publish
+        required: true
+        default: debug/osal-heartbeat
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Publish stable dev firmware
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'debug/osal-heartbeat')
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Resolve source ref
+        id: source
+        shell: bash
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_run" ]]; then
+            echo "ref=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+            echo "branch=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
+            echo "branch=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.source.outputs.ref }}
+          path: source
+
+      - name: Checkout stable dev channel
+        uses: actions/checkout@v4
+        with:
+          ref: artifact/dev
+          path: publish
+
+      - name: Install GNU Arm Embedded toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes gcc-arm-none-eabi ninja-build make
+
+      - name: Build HappyLighting dev firmware
+        working-directory: source
+        run: |
+          cmake --preset music-light-v3-221101-happylighting-ble
+          cmake --build --preset music-light-v3-221101-happylighting-ble --verbose
+
+      - name: Prepare fixed-name dev artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="source/build/music-light-v3-221101-happylighting-ble/thb2-happylighting/build/melb_happylighting.hex"
+          dst="publish/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex"
+          mkdir -p publish/artifacts
+          cp "$src" "$dst"
+          echo "SOURCE_COMMIT=$(git -C source rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "SOURCE_BRANCH=${{ steps.source.outputs.branch }}" >> "$GITHUB_ENV"
+          echo "SOURCE_SUBJECT=$(git -C source log -1 --format=%s)" >> "$GITHUB_ENV"
+
+      - name: Generate dev manifest
+        env:
+          DEV_HEX: publish/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex
+          DEV_MANIFEST: publish/artifacts/Music-Light-V3-221101_ST17H66B_DEV.json
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+          import os
+
+          image = Path(os.environ['DEV_HEX']).read_bytes()
+          manifest = {
+              'channel': 'dev',
+              'label': os.environ['SOURCE_SUBJECT'],
+              'board': 'Music-Light-V3-221101',
+              'mcu': 'ST17H66B / PHY6222M005',
+              'source_branch': os.environ['SOURCE_BRANCH'],
+              'source_commit': os.environ['SOURCE_COMMIT'],
+              'validation': 'build-pass; hardware validation tracked separately',
+              'firmware_url': (
+                  'https://raw.githubusercontent.com/KobaProduction/'
+                  'music-equalizer-lightbar/artifact/dev/artifacts/'
+                  'Music-Light-V3-221101_ST17H66B_DEV.hex'
+              ),
+              'size': len(image),
+              'sha256': hashlib.sha256(image).hexdigest(),
+          }
+          Path(os.environ['DEV_MANIFEST']).write_text(
+              json.dumps(manifest, indent=2) + '\n', encoding='utf-8'
+          )
+          print(json.dumps(manifest, indent=2))
+          PY
+
+      - name: Publish artifact/dev
+        working-directory: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f \
+            artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex \
+            artifacts/Music-Light-V3-221101_ST17H66B_DEV.json
+          if git diff --cached --quiet; then
+            echo "Dev artifact already matches source build."
+            exit 0
+          fi
+          git commit -m "Publish dev firmware ${SOURCE_COMMIT:0:12}"
+          git push origin HEAD:artifact/dev
