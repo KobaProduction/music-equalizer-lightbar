@@ -12,13 +12,13 @@ Current board facts:
 
 - MCU: ST17H66B, Arm Cortex-M0
 - light source: 32 addressable RGB LEDs
-- LED protocol: WS2812B-compatible one-wire data stream
+- LED protocol: factory-recovered WS2812-compatible one-wire stream over SPI1/P34; hardware-pass
 - controls: reported functions/labels include Power, Color, Bright, Mode, and Speed; exact physical button grouping and GPIO mapping are being traced
 - microphone: populated; MCU connection is being traced
 - USB Type-C: populated
 - battery pads: populated on the PCB; battery is absent on the inspected unit
 - BLE: required project capability
-- exact GPIO map: bring-up in progress
+- key GPIO map and LED transport: hardware-confirmed; auxiliary nets remain under bring-up
 
 See [docs/Music-Light-V3-221101.md](docs/Music-Light-V3-221101.md).
 

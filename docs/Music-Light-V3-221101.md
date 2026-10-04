@@ -59,11 +59,22 @@ The first ROM-UART operation remains read-only: preserve the complete original F
 
 ## LED chain
 
-The board contains 32 addressable RGB LEDs using the WS2812B-compatible 800 kbit/s, 24-bit-per-pixel GRB protocol.
+The board contains 32 addressable RGB LEDs on **P34 / package pin 1**.
 
-The LED data GPIO is now confirmed as **P34 / package pin 1**.
+Behavior recovery of the original firmware and subsequent hardware execution established the factory LED control contract:
 
-This removes the main hardware blocker for a first LED bring-up firmware. The remaining implementation work is the ST17H66B GPIO/timing backend required to generate the WS2812B waveform.
+- SPI1 MOSI on P34;
+- requested SPI baud 3 MHz;
+- effective 3.2 MHz with the observed 16 MHz PCLK and factory divider 5;
+- MODE1, 8-bit SPI frames;
+- PHYplus TX DMA path;
+- 24-bit-per-pixel GRB wire order;
+- four SPI bits per LED bit;
+- `0 -> 1000`, `1 -> 1110`;
+- 12 SPI bytes per pixel, 384 bytes for all 32 pixels;
+- latch/reset provided by low idle time between frames rather than an encoded zero tail.
+
+The factory-equivalent backend has passed hardware validation on the inspected board. See `docs/WS2812B.md` for the recovered action route and implementation details.
 
 ## Controls
 
@@ -86,11 +97,11 @@ BLE is mandatory for this target. External control uses a repository-owned trans
 3. **P34 WS2812B data — confirmed**
 4. **P11 / P3 / P7 controls — confirmed**
 5. preserve original Flash through ROM UART
-6. validate GPIO output and WS2812B waveform
-7. determine button active levels/pulls
+6. **P34 LED transport — hardware-pass using recovered factory SPI/DMA contract**
+7. **button active levels/pulls — confirmed active-low**
 8. validate microphone ADC path
 9. identify P2/P14/P18/P20 auxiliary circuitry if required by product behavior
-10. integrate and validate BLE radio/GATT
+10. BLE radio/GATT — runtime bring-up validated; product behavior integration remains ongoing
 
 
 ## Local buttons

@@ -1,26 +1,25 @@
 #include "ws2812b_spi.h"
 
-static void encode_byte(uint8_t value, uint8_t output[3])
+static void encode_byte(uint8_t value, uint8_t output[4])
 {
-    uint32_t encoded = 0u;
+    for (uint8_t pair = 0u; pair < 4u; ++pair) {
+        const uint8_t shift = (uint8_t)(6u - (pair * 2u));
+        const uint8_t first =
+            ((value >> (shift + 1u)) & 1u) != 0u
+                ? WS2812B_SPI_SYMBOL_1
+                : WS2812B_SPI_SYMBOL_0;
+        const uint8_t second =
+            ((value >> shift) & 1u) != 0u
+                ? WS2812B_SPI_SYMBOL_1
+                : WS2812B_SPI_SYMBOL_0;
 
-    for (uint8_t bit = 0u; bit < 8u; ++bit) {
-        const uint8_t mask = (uint8_t)(UINT8_C(0x80) >> bit);
-        const uint8_t symbol =
-            (value & mask) != 0u ? WS2812B_SPI_SYMBOL_1 : WS2812B_SPI_SYMBOL_0;
-
-        encoded = (encoded << 3u) | symbol;
+        output[pair] = (uint8_t)((first << 4u) | second);
     }
-
-    output[0] = (uint8_t)(encoded >> 16u);
-    output[1] = (uint8_t)(encoded >> 8u);
-    output[2] = (uint8_t)encoded;
 }
 
 size_t ws2812b_spi_encoded_size(size_t pixel_count)
 {
-    return (pixel_count * (size_t)WS2812B_SPI_BYTES_PER_PIXEL)
-        + (size_t)WS2812B_SPI_RESET_BYTES;
+    return pixel_count * (size_t)WS2812B_SPI_BYTES_PER_PIXEL;
 }
 
 size_t ws2812b_spi_encode(
@@ -39,19 +38,15 @@ size_t ws2812b_spi_encode(
 
     for (size_t i = 0u; i < pixel_count; ++i) {
         /*
-         * WS2812B wire order is GRB. Each source byte expands from 8 protocol
-         * bits to 24 SPI bits, therefore exactly three SPI bytes.
+         * Recovered factory action node reads input[1], input[0], input[2]:
+         * RGB input therefore becomes GRB on the wire.
          */
         encode_byte(pixels[i].green, &output[offset]);
-        offset += 3u;
+        offset += 4u;
         encode_byte(pixels[i].red, &output[offset]);
-        offset += 3u;
+        offset += 4u;
         encode_byte(pixels[i].blue, &output[offset]);
-        offset += 3u;
-    }
-
-    for (size_t i = 0u; i < (size_t)WS2812B_SPI_RESET_BYTES; ++i) {
-        output[offset++] = 0u;
+        offset += 4u;
     }
 
     return offset;
