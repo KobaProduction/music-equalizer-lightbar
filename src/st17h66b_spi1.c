@@ -42,8 +42,9 @@
 #define ST17H66B_FMUX_SPI1_TX 22u
 
 #define ST17H66B_SPI_SR_BUSY UINT8_C(0x01)
+#define ST17H66B_SPI_TX_FIFO_DEPTH UINT16_C(8)
 
-#define ST17H66B_DMA_FRAME_CAPACITY 1280u
+#define ST17H66B_DMA_FRAME_CAPACITY 1024u
 #define ST17H66B_DMA_CHUNK_MAX 0x07ffu
 
 typedef uint32_t (*rom_clk_get_pclk_t)(void);
@@ -109,9 +110,8 @@ static int st17h66b_spi1_hw_init(uint32_t baud_hz)
     /*
      * DW-SSI requires an even BAUDR divider. If normal rounding lands on an
      * odd value, choose the neighbouring even divider that gives the smaller
-     * frequency error. The old code always rounded upward, which can turn a
-     * 16 MHz PCLK / 2.4 MHz request into 2.0 MHz instead of the much closer
-     * 2.667 MHz and pushes 3-bit WS2812 symbols outside their useful window.
+     * frequency error. WS2812 output relies on the actual hardware baud being
+     * deterministic, so the effective divider is also exposed for telemetry.
      */
     if ((divider & 1u) != 0u) {
         const uint32_t lower = divider > 2u ? divider - 1u : 2u;
@@ -137,7 +137,7 @@ static int st17h66b_spi1_hw_init(uint32_t baud_hz)
     ST17H66B_SPI1_IMR = 0u;
     ST17H66B_SPI1_DMACR = 0u;
     ST17H66B_SPI1_DMATDLR = 4u;
-    ST17H66B_SPI1_SER = 1u;
+    ST17H66B_SPI1_SER = 0u;
     ST17H66B_SPI1_SSIEN = 1u;
 
     return 0;
@@ -152,8 +152,38 @@ static void st17h66b_spi1_wakeup_restore(void)
 
 static int start_dma_chunk(void)
 {
+    const bool starting_frame = s_active_offset == 0u;
+
+    if (starting_frame) {
+        /*
+         * DW_apb_ssi continuous-transfer rule: do not let the first data word
+         * start shifting from an otherwise empty FIFO. Keep SER deasserted,
+         * preload the FIFO, arm DMA for the remainder, and only then assert SER.
+         *
+         * The PHYplus SPI driver confirms an 8-entry TX FIFO.
+         */
+        ST17H66B_SPI1_SER = 0u;
+        ST17H66B_SPI1_DMACR &= ~UINT32_C(0x02);
+
+        const uint16_t preload =
+            s_active_size < ST17H66B_SPI_TX_FIFO_DEPTH
+                ? s_active_size
+                : ST17H66B_SPI_TX_FIFO_DEPTH;
+
+        for (uint16_t i = 0u; i < preload; ++i) {
+            ST17H66B_SPI1_DATA =
+                s_dma_buffers[s_active_buffer][s_active_offset++];
+        }
+    }
+
     const uint16_t remaining =
         (uint16_t)(s_active_size - s_active_offset);
+
+    if (remaining == 0u) {
+        ST17H66B_SPI1_SER = 1u;
+        return 0;
+    }
+
     const uint16_t chunk =
         remaining > ST17H66B_DMA_CHUNK_MAX
             ? ST17H66B_DMA_CHUNK_MAX
@@ -175,18 +205,7 @@ static int start_dma_chunk(void)
     cfg.dst_addr = (uint32_t)&ST17H66B_SPI1_DATA;
     cfg.enable_int = true;
 
-    /*
-     * Match the PHYplus SPI driver's ordering exactly: disable TX DMA,
-     * configure and start the channel first, then expose the SSI request.
-     * Enabling DMACR before the DMA channel is armed can lose the initial
-     * TX-empty request and corrupt the first WS2812 symbols.
-     */
     ST17H66B_SPI1_DMACR &= ~UINT32_C(0x02);
-    /*
-     * Request DMA while the TX FIFO still has headroom instead of waiting
-     * until it is empty. With 8 MHz SPI this keeps several bytes buffered and
-     * prevents serial-clock gaps caused by DMA service latency.
-     */
     ST17H66B_SPI1_DMATDLR = 4u;
 
     const int cfg_result = hal_dma_config_channel(DMA_CH_0, &cfg);
@@ -202,6 +221,11 @@ static int start_dma_chunk(void)
     }
 
     ST17H66B_SPI1_DMACR |= UINT32_C(0x02);
+
+    if (starting_frame) {
+        ST17H66B_SPI1_SER = 1u;
+    }
+
     return 0;
 }
 
@@ -216,6 +240,7 @@ static void finish_spi_frame(void)
         && budget-- != 0u) {
     }
 
+    ST17H66B_SPI1_SER = 0u;
     ++s_completed_frames;
 }
 
