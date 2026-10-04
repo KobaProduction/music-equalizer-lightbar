@@ -1,22 +1,12 @@
 #include "ws2812b_spi.h"
 
-static void encode_byte(uint8_t value, uint8_t output[5])
+static void encode_byte(uint8_t value, uint8_t output[8])
 {
-    uint64_t encoded = 0u;
-
     for (uint8_t bit = 0u; bit < 8u; ++bit) {
         const uint8_t mask = (uint8_t)(UINT8_C(0x80) >> bit);
-        const uint8_t symbol =
+        output[bit] =
             (value & mask) != 0u ? WS2812B_SPI_SYMBOL_1 : WS2812B_SPI_SYMBOL_0;
-
-        encoded = (encoded << 5u) | (uint64_t)symbol;
     }
-
-    output[0] = (uint8_t)(encoded >> 32u);
-    output[1] = (uint8_t)(encoded >> 24u);
-    output[2] = (uint8_t)(encoded >> 16u);
-    output[3] = (uint8_t)(encoded >> 8u);
-    output[4] = (uint8_t)encoded;
 }
 
 size_t ws2812b_spi_encoded_size(size_t pixel_count)
@@ -41,18 +31,25 @@ size_t ws2812b_spi_encode(
 
     for (size_t i = 0u; i < pixel_count; ++i) {
         /*
-         * WS2812B-compatible wire order remains GRB. Each source byte expands
-         * from 8 protocol bits to 40 SPI bits (5 bytes) at 4 MHz:
-         *   0 -> 11000 = 0.50 us high, 0.75 us low
-         *   1 -> 11100 = 0.75 us high, 0.50 us low
-         * giving an exact 1.25 us protocol bit period.
+         * One 8-bit SSI frame is one WS2812-compatible protocol bit.
+         *
+         * The ST17H66B SSI visibly inserts a short LOW inter-frame interval.
+         * Previous 3-bit/5-bit packing let those gaps land at arbitrary places
+         * inside WS2812 cells. At 8 MHz, byte-aligning every protocol bit makes
+         * that hardware interval repeat at the same point after every bit:
+         *
+         *   0 -> 11100000 : 0.375 us HIGH + LOW tail + inter-frame LOW
+         *   1 -> 11111100 : 0.750 us HIGH + LOW tail + inter-frame LOW
+         *
+         * If the observed inter-frame idle is one SPI clock, the complete cell
+         * is about 1.125 us with LOW times about 0.750/0.375 us respectively.
          */
         encode_byte(pixels[i].green, &output[offset]);
-        offset += 5u;
+        offset += 8u;
         encode_byte(pixels[i].red, &output[offset]);
-        offset += 5u;
+        offset += 8u;
         encode_byte(pixels[i].blue, &output[offset]);
-        offset += 5u;
+        offset += 8u;
     }
 
     for (size_t i = 0u; i < (size_t)WS2812B_SPI_RESET_BYTES; ++i) {

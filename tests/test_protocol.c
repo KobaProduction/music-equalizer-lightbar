@@ -47,19 +47,9 @@ static void test_ws2812b_spi_encoding(void)
     assert(ws2812b_spi_encode(
         &white, 1u, white_encoded, sizeof(white_encoded)) == sizeof(white_encoded));
 
-    const uint8_t zero_symbol_byte[5] = {0xc6u, 0x31u, 0x8cu, 0x63u, 0x18u};
-    const uint8_t one_symbol_byte[5] = {0xe7u, 0x39u, 0xceu, 0x73u, 0x9cu};
-
-    for (size_t component = 0u; component < 3u; ++component) {
-        assert(memcmp(
-            &black_encoded[component * 5u],
-            zero_symbol_byte,
-            sizeof(zero_symbol_byte)) == 0);
-
-        assert(memcmp(
-            &white_encoded[component * 5u],
-            one_symbol_byte,
-            sizeof(one_symbol_byte)) == 0);
+    for (size_t i = 0u; i < WS2812B_SPI_BYTES_PER_PIXEL; ++i) {
+        assert(black_encoded[i] == WS2812B_SPI_SYMBOL_0);
+        assert(white_encoded[i] == WS2812B_SPI_SYMBOL_1);
     }
 
     for (size_t i = WS2812B_SPI_BYTES_PER_PIXEL;

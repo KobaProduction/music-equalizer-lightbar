@@ -43,7 +43,7 @@
 
 #define ST17H66B_SPI_SR_BUSY UINT8_C(0x01)
 
-#define ST17H66B_DMA_FRAME_CAPACITY 1024u
+#define ST17H66B_DMA_FRAME_CAPACITY 1280u
 #define ST17H66B_DMA_CHUNK_MAX 0x07ffu
 
 typedef uint32_t (*rom_clk_get_pclk_t)(void);
@@ -184,7 +184,7 @@ static int start_dma_chunk(void)
     ST17H66B_SPI1_DMACR &= ~UINT32_C(0x02);
     /*
      * Request DMA while the TX FIFO still has headroom instead of waiting
-     * until it is empty. With 4 MHz SPI this keeps several bytes buffered and
+     * until it is empty. With 8 MHz SPI this keeps several bytes buffered and
      * prevents serial-clock gaps caused by DMA service latency.
      */
     ST17H66B_SPI1_DMATDLR = 4u;

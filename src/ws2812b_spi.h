@@ -5,17 +5,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define WS2812B_SPI_BAUD_HZ UINT32_C(4000000)
-#define WS2812B_SPI_SYMBOL_0 UINT8_C(0x18)
-#define WS2812B_SPI_SYMBOL_1 UINT8_C(0x1c)
-#define WS2812B_SPI_BYTES_PER_PIXEL UINT8_C(15)
+#define WS2812B_SPI_BAUD_HZ UINT32_C(8000000)
+#define WS2812B_SPI_SYMBOL_0 UINT8_C(0xe0)
+#define WS2812B_SPI_SYMBOL_1 UINT8_C(0xfc)
+#define WS2812B_SPI_BYTES_PER_PIXEL UINT8_C(24)
 
 /*
- * Keep the line low for a conservative reset/latch interval. 160 zero bytes
- * are exactly 320 us at 4 MHz, covering newer WS2812B-compatible revisions
- * that require a reset interval substantially longer than the legacy 50 us.
+ * Keep the line low for a conservative reset/latch interval. 320 zero bytes
+ * are at least 320 us at 8 MHz. Any SSI inter-frame idle time is also LOW and
+ * only lengthens the reset interval.
  */
-#define WS2812B_SPI_RESET_BYTES UINT8_C(160)
+#define WS2812B_SPI_RESET_BYTES UINT16_C(320)
 
 size_t ws2812b_spi_encoded_size(size_t pixel_count);
 
