@@ -335,13 +335,6 @@ void melb_happylighting_local_tick(void)
         refresh_status_value();
     }
 
-    if (++rgb_test_ticks < 200u) {
-        return;
-    }
-    rgb_test_ticks = 0u;
-
-    memset(pixels, 0, sizeof(pixels));
-
     uint8_t raw_pattern = 0x00u;
     const char *phase_name = "ZERO";
     if (rgb_test_phase == 1u) {
@@ -352,20 +345,28 @@ void melb_happylighting_local_tick(void)
         phase_name = "ALT";
     }
 
-    pixels[0].green = raw_pattern;
-
-    const size_t encoded = ws2812b_spi_encode(
-        pixels, MELB_LED_COUNT, spi_frame, sizeof(spi_frame));
-    int spi_result = -1;
-    if (encoded == sizeof(spi_frame)) {
-        spi_result = st17h66b_spi1_write(spi_frame, encoded);
+    if (rgb_test_ticks == 0u) {
+        LOG("MELB: scope phase=%s byte0=0x%02x repeat=20ms hold=3s\n",
+            phase_name, raw_pattern);
     }
 
-    LOG("MELB: scope phase=%s byte0=0x%02x dma_done=%lu spi=%d\n",
-        phase_name, raw_pattern,
-        (unsigned long)st17h66b_spi1_completed_frames(), spi_result);
+    ++rgb_test_ticks;
 
-    rgb_test_phase = (uint8_t)((rgb_test_phase + 1u) % 3u);
+    if ((rgb_test_ticks & 1u) == 0u) {
+        memset(pixels, 0, sizeof(pixels));
+        pixels[0].green = raw_pattern;
+
+        const size_t encoded = ws2812b_spi_encode(
+            pixels, MELB_LED_COUNT, spi_frame, sizeof(spi_frame));
+        if (encoded == sizeof(spi_frame)) {
+            (void)st17h66b_spi1_write(spi_frame, encoded);
+        }
+    }
+
+    if (rgb_test_ticks >= 300u) {
+        rgb_test_ticks = 0u;
+        rgb_test_phase = (uint8_t)((rgb_test_phase + 1u) % 3u);
+    }
 }
 
 static uint8 happy_read_attr(
