@@ -1,12 +1,12 @@
 {
   "channel": "dev",
-  "label": "Stabilize LED frame tail and DMA completion",
+  "label": "Size LED frame buffers for guard slots",
   "board": "Music-Light-V3-221101",
   "mcu": "ST17H66B / PHY6222M005",
   "source_branch": "feature/product-runtime",
-  "source_commit": "1028d1ffcea7676182fe82e2e13219a2fbee0dd7",
+  "source_commit": "b957ea736f673667e27230ab5911d5d10a758eda",
   "validation": "build-pass; hardware validation tracked separately",
   "firmware_url": "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex",
-  "size": 147367,
-  "sha256": "619d34d64d5a0c19187a6b6bf4b7ce3ac99439db21fb9e4b315861dd36bb83f2"
+  "size": 147571,
+  "sha256": "d7efd45135227857e41b7c5f4f821707e4025f828b46dac513d3c42532610967"
 }
