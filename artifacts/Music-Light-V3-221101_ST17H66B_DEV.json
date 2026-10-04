@@ -1,12 +1,12 @@
 {
   "channel": "dev",
-  "label": "Advertise Triones name in primary BLE packet",
+  "label": "Restore known-good HappyLighting BLE behavior",
   "board": "Music-Light-V3-221101",
   "mcu": "ST17H66B / PHY6222M005",
   "source_branch": "feature/product-runtime",
-  "source_commit": "82339c4360ec23e4a1fbacaf628940a7142ef768",
+  "source_commit": "2ce47121a0ed0bf81137649838d75c58bdbee88f",
   "validation": "build-pass; hardware validation tracked separately",
   "firmware_url": "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex",
-  "size": 146708,
-  "sha256": "f5cf95c695413bcea3f7f468e052e582f7937f97491131edcb9b58bbe1960e8e"
+  "size": 147232,
+  "sha256": "12a117d837d252cdb777301852a0c5194864084727192d7333cf811176e1eda2"
 }
