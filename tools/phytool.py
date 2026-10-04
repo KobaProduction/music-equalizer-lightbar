@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-# MELB Firmware Tool
+# PHY62x2 Firmware Tool
 # KobaProduction, 2026.
 # Derived from the ROM-UART utility at https://github.com/pvvx/THB2/blob/master/rdwr_phy62x2.py
-# See pvvx_SOURCE_LICENSE.txt for upstream attribution/license.
+# See UPSTREAM_LICENSE.txt for upstream attribution/license.
 
 import serial
 import time
@@ -17,6 +17,8 @@ import json
 import tempfile
 import urllib.request
 import urllib.parse
+import urllib.error
+from pathlib import Path
 
 START_BAUD = 9600
 DEF_RUN_BAUD = 115200
@@ -34,9 +36,9 @@ PHY_WR_BLK_SIZE = 0x2000
 PHY_FLASH_ADDR = 0x11000000
 PHY_SRAM_ADDR = 0x1fff0000
 
-__progname__ = 'MELB Firmware Tool'
-__filename__ = 'melb_tool.py'
-__version__ = "0.2.0"
+__progname__ = 'PHY62x2 Firmware Tool'
+__filename__ = 'phytool.py'
+__version__ = "0.3.0"
 
 
 def ParseHexFile(hexfile):
@@ -591,83 +593,152 @@ class FatalError(RuntimeError):
 def arg_auto_int(x):
 	return int(x, 0)
 
-def _download_bytes(url):
-	req = urllib.request.Request(
-		url,
-		headers={"User-Agent": "melb-firmware-tool/0.2"},
-	)
-	with urllib.request.urlopen(req, timeout=30) as response:
-		return response.read()
+def _is_url(target):
+	parsed = urllib.parse.urlparse(target)
+	return parsed.scheme in ("http", "https")
 
-def _load_manifest(manifest_url):
-	print("Manifest URL:", manifest_url)
-	raw = _download_bytes(manifest_url)
+def _read_target_bytes(target, optional=False):
+	if _is_url(target):
+		req = urllib.request.Request(
+			target,
+			headers={"User-Agent": "phy62x2-firmware-tool/0.3"},
+		)
+		try:
+			with urllib.request.urlopen(req, timeout=30) as response:
+				return response.read()
+		except urllib.error.HTTPError as exc:
+			if optional and exc.code == 404:
+				return None
+			raise
+	path = Path(target)
+	if optional and not path.exists():
+		return None
+	return path.read_bytes()
+
+def _manifest_candidate(target):
+	if _is_url(target):
+		parts = urllib.parse.urlsplit(target)
+		path = parts.path
+		base, ext = os.path.splitext(path)
+		if ext.lower() == ".json":
+			return target
+		manifest_path = base + ".json"
+		return urllib.parse.urlunsplit(
+			(parts.scheme, parts.netloc, manifest_path, parts.query, parts.fragment)
+		)
+	path = Path(target)
+	if path.suffix.lower() == ".json":
+		return str(path)
+	return str(path.with_suffix(".json"))
+
+def _resolve_manifest_firmware(manifest_target, firmware_value):
+	if _is_url(firmware_value):
+		return firmware_value
+	if _is_url(manifest_target):
+		return urllib.parse.urljoin(manifest_target, firmware_value)
+	return str((Path(manifest_target).parent / firmware_value).resolve())
+
+def _load_manifest_target(manifest_target, optional=False):
+	raw = _read_target_bytes(manifest_target, optional=optional)
+	if raw is None:
+		return None
 	try:
 		manifest = json.loads(raw.decode("utf-8"))
 	except Exception as exc:
-		raise FatalError("Invalid firmware manifest: %s" % exc)
+		raise FatalError("Invalid firmware manifest %s: %s" % (manifest_target, exc))
 	if not isinstance(manifest, dict):
 		raise FatalError("Firmware manifest must be a JSON object")
+	print("Manifest:", manifest_target)
 	return manifest
 
-def download_firmware(firmware_url=None, manifest_url=None, expected_sha256=None):
-	manifest = {}
-	if manifest_url:
-		manifest = _load_manifest(manifest_url)
+def prepare_flash_target(target, manifest_target=None, expected_sha256=None, auto_manifest=True):
+	manifest = None
+	firmware_target = target
 
-	if not firmware_url:
-		firmware_url = manifest.get("firmware_url")
-	if not firmware_url:
-		raise FatalError("Firmware URL is required (--url or manifest firmware_url)")
+	if target.lower().endswith(".json"):
+		manifest_target = target
+		manifest = _load_manifest_target(manifest_target, optional=False)
+	else:
+		if manifest_target:
+			manifest = _load_manifest_target(manifest_target, optional=False)
+		elif auto_manifest:
+			candidate = _manifest_candidate(target)
+			manifest = _load_manifest_target(candidate, optional=True)
+			if manifest is None:
+				print("Manifest: not found (%s), continuing without it" % candidate)
+			else:
+				manifest_target = candidate
 
-	print("Firmware URL:", firmware_url)
-	artifact_name = os.path.basename(urllib.parse.urlparse(firmware_url).path)
+	if manifest is not None:
+		firmware_value = (
+			manifest.get("firmware_url")
+			or manifest.get("firmware_target")
+			or manifest.get("firmware")
+		)
+		if target.lower().endswith(".json"):
+			if not firmware_value:
+				raise FatalError("Manifest does not identify firmware target")
+			firmware_target = _resolve_manifest_firmware(manifest_target, firmware_value)
+		elif firmware_value:
+			resolved = _resolve_manifest_firmware(manifest_target, firmware_value)
+			if resolved != target:
+				print("Manifest firmware reference:", resolved)
+				print("Explicit --target remains authoritative")
+
+	print("Firmware target:", firmware_target)
+	artifact_name = (
+		os.path.basename(urllib.parse.urlparse(firmware_target).path)
+		if _is_url(firmware_target)
+		else Path(firmware_target).name
+	)
 	if artifact_name:
 		print("Artifact:", urllib.parse.unquote(artifact_name))
-	if manifest.get("label"):
-		print("Firmware:", manifest["label"])
-	if manifest.get("board"):
-		print("Board:", manifest["board"])
-	if manifest.get("mcu"):
-		print("MCU:", manifest["mcu"])
-	if manifest.get("source_commit"):
-		print("Source commit:", manifest["source_commit"])
-	if manifest.get("validation"):
-		print("Validation:", manifest["validation"])
 
-	image = _download_bytes(firmware_url)
+	if manifest:
+		for key, label in (
+			("label", "Firmware"),
+			("board", "Board"),
+			("mcu", "MCU"),
+			("source_commit", "Source commit"),
+			("validation", "Validation"),
+		):
+			if manifest.get(key):
+				print("%s:" % label, manifest[key])
+
+	image = _read_target_bytes(firmware_target, optional=False)
 	digest = hashlib.sha256(image).hexdigest()
 
-	manifest_size = manifest.get("size")
-	if manifest_size is not None and len(image) != int(manifest_size):
-		raise FatalError(
-			"Downloaded firmware size mismatch: got %d, expected %d"
-			% (len(image), int(manifest_size))
-		)
+	if manifest and manifest.get("size") is not None:
+		if len(image) != int(manifest["size"]):
+			raise FatalError(
+				"Firmware size mismatch: got %d, expected %d"
+				% (len(image), int(manifest["size"]))
+			)
 
-	manifest_sha = manifest.get("sha256")
+	manifest_sha = manifest.get("sha256") if manifest else None
 	expected = expected_sha256 or manifest_sha
 	if expected and digest.lower() != str(expected).lower():
 		raise FatalError(
-			"Downloaded firmware SHA-256 mismatch: got %s, expected %s"
+			"Firmware SHA-256 mismatch: got %s, expected %s"
 			% (digest, expected)
 		)
 
-	print("Downloaded size:", len(image), "bytes")
+	print("Firmware size:", len(image), "bytes")
 	print("SHA-256:", digest)
 	if expected:
 		print("SHA-256 verification: OK")
 	else:
-		print("SHA-256 verification: not requested (digest shown above)")
+		print("SHA-256 verification: not requested")
 
-	fd, path = tempfile.mkstemp(prefix="melb-fw-", suffix=".hex")
+	fd, path = tempfile.mkstemp(prefix="phytool-fw-", suffix=".hex")
 	os.close(fd)
 	with open(path, "wb") as out:
 		out.write(image)
 
 	print("Local temporary image:", path)
 	print("---------------------------------------------------------")
-	return manifest, path
+	return manifest or {}, path
+
 
 def monitor_serial_handle(ser, baud=115200):
 	previous_baud = getattr(ser, "baudrate", None)
@@ -716,305 +787,211 @@ def reset_and_monitor(phy, baud=115200):
 
 
 def main():
-	parser = argparse.ArgumentParser(description='%s version %s' % (__progname__, __version__), prog = __filename__)
-	parser.add_argument('--port', '-p', help = 'Serial port device',	default='COM1')
-	parser.add_argument('--baud', '-b',	help = 'Set Port Baud rate (115200, 250000, 500000, 1000000)',	type = arg_auto_int, default = DEF_RUN_BAUD)
+	parser = argparse.ArgumentParser(
+		description="%s version %s" % (__progname__, __version__),
+		prog=__filename__,
+	)
+	parser.add_argument("--port", "-p", default="COM1", help="Serial port device")
+	parser.add_argument("--tm", "-t", action="store_true", help='If pin TM is set "1"')
 
-	parser.add_argument('--allerase', '-a',  action='store_true', help = 'Pre-processing: All Chip Erase')
-	parser.add_argument('--erase', '-e',  action='store_true', help = 'Pre-processing: Erase Flash work area')
-	parser.add_argument('--reset', '-r',  action='store_true', help = 'Post-processing: Reset')
-	parser.add_argument('--start', '-s',  help = 'Application start address for hex writer (default: 0x%08x)' % DEF_START_RUN_APP_ADDR, type = arg_auto_int, default = DEF_START_RUN_APP_ADDR)
-	parser.add_argument('--write', '-w',  help = 'Flash starting address for hex writer (default: 0x%08x)' % DEF_START_WR_FLASH_ADDR, type = arg_auto_int, default = DEF_START_WR_FLASH_ADDR)
-	parser.add_argument('--tm', '-t',  action='store_true', help = 'If pin TM is set "1"')
-	parser.add_argument('--url', help = 'Full URL of a remote Intel HEX firmware image to download and flash')
-	parser.add_argument('--manifest-url', help = 'Optional JSON manifest URL with firmware metadata, size and SHA-256')
-	parser.add_argument('--sha256', help = 'Optional expected SHA-256 for --url')
-	parser.add_argument('--flash-baud', type=arg_auto_int, default=DEV_RUN_BAUD, help = 'ROM write baud for remote firmware (default: 500000)')
-	parser.add_argument('--monitor', action='store_true', help = 'After reset, continue on the same open serial port at runtime baud; without a flash operation, monitor only')
-	parser.add_argument('--monitor-baud', type=arg_auto_int, default=115200, help = 'Runtime UART baud rate (default: 115200)')
+	subparsers = parser.add_subparsers(dest="operation", required=True)
 
-	subparsers = parser.add_subparsers(
-			dest='operation',
-			help = 'Run '+__filename__+' {command} -h for additional help')
+	flash = subparsers.add_parser(
+		"flash",
+		help="Flash an Intel HEX from a local path or web URL",
+	)
+	flash.add_argument(
+		"--target",
+		required=True,
+		help="Firmware HEX path/URL, or a JSON manifest path/URL",
+	)
+	flash.add_argument(
+		"--manifest",
+		help="Explicit manifest path/URL; otherwise <target basename>.json is probed",
+	)
+	flash.add_argument(
+		"--no-manifest",
+		action="store_true",
+		help="Disable automatic sibling manifest discovery",
+	)
+	flash.add_argument("--sha256", help="Optional expected firmware SHA-256")
+	flash.add_argument(
+		"--baud",
+		type=arg_auto_int,
+		default=DEV_RUN_BAUD,
+		help="ROM flashing baud (default: 500000)",
+	)
+	flash.add_argument(
+		"--monitor",
+		action="store_true",
+		help="After reset, continue immediately on the same open serial handle",
+	)
+	flash.add_argument(
+		"--monitor-baud",
+		type=arg_auto_int,
+		default=115200,
+		help="Runtime UART baud (default: 115200)",
+	)
+	flash.add_argument(
+		"--start",
+		type=arg_auto_int,
+		default=DEF_START_RUN_APP_ADDR,
+		help="Application start address for HEX writer",
+	)
+	flash.add_argument(
+		"--write",
+		type=arg_auto_int,
+		default=DEF_START_WR_FLASH_ADDR,
+		help="Flash storage address for SRAM HEX sections",
+	)
 
-	parser_hex_flash = subparsers.add_parser(
-			'wh',
-			help = 'Write hex file to Flash')
-	parser_hex_flash.add_argument('filename', help = 'Name of hex file')
+	dump = subparsers.add_parser("dump", help="Dump the complete external Flash")
+	dump.add_argument("--target", required=True, help="Output .bin path")
+	dump.add_argument(
+		"--baud",
+		type=arg_auto_int,
+		default=DEV_RUN_BAUD,
+		help="ROM transfer baud (default: 500000)",
+	)
 
-	parser_burn_flash = subparsers.add_parser(
-			'we',
-			help = 'Write bin file to Flash with sectors erases')
-	parser_burn_flash.add_argument('address', help = 'Start address', type = arg_auto_int)
-	parser_burn_flash.add_argument('filename', help = 'Name of binary file')
+	monitor = subparsers.add_parser("monitor", help="Open runtime UART monitor")
+	monitor.add_argument(
+		"--baud",
+		type=arg_auto_int,
+		default=115200,
+		help="Runtime UART baud (default: 115200)",
+	)
 
-	parser_write_flash = subparsers.add_parser(
-			'wf',
-			help = 'Write bin file to Flash without sectors erases')
-	parser_write_flash.add_argument('address', help = 'Start address', type = arg_auto_int)
-	parser_write_flash.add_argument('filename', help = 'Name of binary file')
+	info = subparsers.add_parser("info", help="Read chip and Flash information")
+	info.add_argument(
+		"--baud",
+		type=arg_auto_int,
+		default=DEF_RUN_BAUD,
+		help="ROM baud after connection",
+	)
 
-	parser_erase_sec_flash = subparsers.add_parser(
-			'er',
-			help = 'Erase Region (sectors) of Flash')
-	parser_erase_sec_flash.add_argument('address', help = 'Start address', type = arg_auto_int)
-	parser_erase_sec_flash.add_argument('size', help = 'Size of region', type = arg_auto_int)
-
-	parser_erase_work_flash = subparsers.add_parser(
-			'ew',
-			help = 'Erase Flash Work Area')
-
-	parser_erase_all_flash = subparsers.add_parser(
-			'ea',
-			help = 'Erase All Flash (MAC, ChipID/IV)')
-
-	parser_read_chip = subparsers.add_parser(
-			'rc',
-			help = 'Read chip bus address to binary file')
-	parser_read_chip.add_argument('address', help = 'Start address', type = arg_auto_int)
-	parser_read_chip.add_argument('size', help = 'Size of region', type = arg_auto_int)
-	parser_read_chip.add_argument('filename', help = 'Name of binary file')
-
-	parser_read_all_flash = subparsers.add_parser(
-			'rf',
-			help = 'Read all Flash',
-			)
-	parser_read_all_flash.add_argument('filename', help = 'Name of binary file')
-
-	parser_read_info = subparsers.add_parser(
-			'i', help = 'Chip Information')
-	
 	args = parser.parse_args()
 
-	remote_temp_path = None
-	if args.url or args.manifest_url:
-		if args.operation is not None:
-			parser.error('--url/--manifest-url cannot be combined with an explicit operation')
+	if args.operation == "monitor":
 		try:
-			_, remote_temp_path = download_firmware(args.url, args.manifest_url, args.sha256)
+			standalone_serial_monitor(args.port, args.baud)
 		except Exception as exc:
-			print('Error:', exc)
-			sys.exit(2)
-		args.operation = 'wh'
-		args.filename = remote_temp_path
-		args.baud = args.flash_baud
-		args.reset = True
-
-	if args.operation is None and args.monitor:
-		try:
-			standalone_serial_monitor(args.port, args.monitor_baud)
-		except Exception as exc:
-			print('Error:', exc)
+			print("Error:", exc)
 			sys.exit(2)
 		return
 
-	if args.operation is None:
-		parser.print_help()
-		return
+	temp_path = None
+	try:
+		if args.operation == "flash":
+			_, temp_path = prepare_flash_target(
+				args.target,
+				args.manifest,
+				args.sha256,
+				auto_manifest=not args.no_manifest,
+			)
+			filename = temp_path
+			start_addr = args.start
+			write_addr = args.write
+			baud = args.baud
+			do_reset = True
+			do_monitor = args.monitor
+			monitor_baud = args.monitor_baud
+			action = "flash"
+		elif args.operation == "dump":
+			filename = args.target
+			baud = args.baud
+			action = "dump"
+		elif args.operation == "info":
+			baud = args.baud
+			action = "info"
+		else:
+			raise FatalError("Unsupported operation")
 
-	print('=========================================================')
-	print('%s version %s' % (__progname__, __version__))
-	print('---------------------------------------------------------')
-	phy = phyflasher(args.port, args.tm)
-	print ('Connecting...')
-	#--------------------------------
-	if not phy.Connect(args.baud):
-		if args.operation == 'ea':
-			if not phy.cmd_er512():
-				print ('Error: Erase All Flash!')
-				sys.exit(3)
-			exit(0)
-		else:
-			print ("Use the 'Erase All Flash' (ea) command to exit FCT mode!")
-			exit(2)
-	if args.operation == 'i':
-		rs = phy.flash_read_status()
-		if rs == None:
-			print ('Error Flash read Status!')			
-			sys.exit(3)
-		print ('Flash Status: 0x%02x' % rs)
-		rb = phy.flash_read_unique_id()
-		if rb == None:
-			print ('Error Flash read Unique ID!')			
-			sys.exit(3)
-		print ('Flash Serial Number:', rb.hex()) # Unique ID
-	if args.operation == 'rf':
-		try:
-			ff = open(args.filename, "wb")
-		except:
-			print("Error file open '%s'" % args.filename)
-			exit(2)
-		size = phy.ReadAllFlash(ff)
-		if  size == None:
-			ff.close()
-			exit(4)
-		#print
-		print ('\r---------------------------------------------------------')
-		byteSaved = (size + 3) & 0xfffffffc
-		print("%.3f KBytes saved to file '%s'" % (byteSaved/1024, args.filename))
-		ff.close()
-	if args.operation == 'rc':
-		#filename = "r%08x-%08x.bin" % (addr, length)
-		if args.size == 0:
-			print("Read Size = 0!" )
-			exit(1)
-		try:
-			ff = open(args.filename, "wb")
-		except:
-			print("Error file open '%s'" % args.filename)
-			exit(2)
-		if not phy.ReadBusToFile(ff, args.address, args.size):
-			ff.close()
-			exit(4)
-		#print
-		print ('\r---------------------------------------------------------')
-		byteSaved = (args.size + 3) & 0xfffffffc
-		if byteSaved > 1024:
-			print("%.3f KBytes saved to file '%s'" % (byteSaved/1024, args.filename))
-		else:
-			print("%i Bytes saved to file '%s'" % (byteSaved, args.filename))
-		ff.close()
-	#--------------------------------wr flash bin
-	if args.operation == 'we' or args.operation == 'wf':
-		offset = args.address & (MAX_FLASH_SIZE-1)
-		if offset >= MAX_FLASH_SIZE:
-			print ('Error Start Flash address!')
-			sys.exit(1)
-		stream = open(args.filename, 'rb')
-		size = os.path.getsize(args.filename)
-		if size < 1:
-			stream.close()
-			print ('Error: File size = 0!')
-			sys.exit(1)
-		offset = args.address & (MAX_FLASH_SIZE-1)
-		if size + offset > MAX_FLASH_SIZE:
-			size = MAX_FLASH_SIZE - offset
-		if size < 1:
-			stream.close()
-			print ('Error: Write File size = 0!')
-			sys.exit(1)
-		if not phy.SpifsInit():
-			print ('Error: Spifs start init error!')
+		print("=========================================================")
+		print("%s version %s" % (__progname__, __version__))
+		print("---------------------------------------------------------")
+		phy = phyflasher(args.port, args.tm)
+		print("Connecting...")
+		if not phy.Connect(baud):
+			print("Chip is in FCT mode; normal operation is unavailable")
 			sys.exit(2)
-		aerase = args.operation == 'we'
-		if args.erase == True or args.allerase == True:
-			aerase = False
-			if args.allerase == True:
-				if not phy.cmd_erase_all_flash():
-					stream.close()
-					print ('Error: Erase All Flash!')
-					sys.exit(3)
-			else:
-				if args.erase == True:
-					if not phy.cmd_erase_work_flash():
-						stream.close()
-						print ('Error: Erase Flash!')
-						sys.exit(3)
-		phy.SetAutoErase(aerase)
-		print ('Write Flash data 0x%08x to 0x%08x from file: %s ...' % (offset, offset + size, args.filename))
-		if not phy.ExpFlashSize():
-			exit(4)
-		if size > 0:
-			if not phy.WriteBlockFlash(stream, offset, size):
-				stream.close()
-				print ('Error: Write Flash!')
-				sys.exit(2)
-		stream.close()
-		print ('----------------------------------------------------------')
-		print ('Write Flash data 0x%08x to 0x%08x from file: %s - ok.' % (offset, offset + size, args.filename))
-	#--------------------------------wr flash hex
-	if args.operation == 'wh':
-		hp = ParseHexFile(args.filename)
-		if hp == None:
-			sys.exit(2)
-		hexf = phy.HexfHeader(hp, args.start, args.write)
-		if hexf == None:
-			sys.exit(2)
+
+		if action == "info":
+			rs = phy.flash_read_status()
+			if rs is None:
+				raise FatalError("Flash read status failed")
+			print("Flash Status: 0x%02x" % rs)
+			rb = phy.flash_read_unique_id()
+			if rb is None:
+				raise FatalError("Flash read unique ID failed")
+			print("Flash Serial Number:", rb.hex())
+			return
+
+		if action == "dump":
+			target = Path(filename)
+			target.parent.mkdir(parents=True, exist_ok=True)
+			with target.open("wb") as out:
+				size = phy.ReadAllFlash(out)
+			if size is None:
+				raise FatalError("Flash dump failed")
+			byte_saved = (size + 3) & 0xfffffffc
+			print("---------------------------------------------------------")
+			print("%d bytes saved to %s" % (byte_saved, target))
+			return
+
+		hp = ParseHexFile(filename)
+		if hp is None:
+			raise FatalError("Cannot parse HEX file")
+		hexf = phy.HexfHeader(hp, start_addr, write_addr)
+		if hexf is None:
+			raise FatalError("Cannot build HEX Flash header")
 		hp[0][1] = hexf
+
 		if not phy.SpifsInit():
-			print ('Error: Spifs start init error!')
-			sys.exit(2)
-		print ('----------------------------------------------------------')
-		aerase = True
-		if args.erase == True or args.allerase == True:
-			aerase = False
-			if args.allerase == True:
-				if not phy.cmd_erase_all_flash():
-					print ('Error: Erase All Flash!')
-					sys.exit(3)
-			else:
-				if args.erase == True:
-					if not phy.cmd_erase_work_flash():
-						print ('Error: Erase Flash!')
-						sys.exit(3)
-		phy.SetAutoErase(aerase)
+			raise FatalError("SPI Flash initialization failed")
+		phy.SetAutoErase(True)
 		if not phy.ExpFlashSize():
-			exit(4)
-		segment = 0
+			raise FatalError("Flash size setup failed")
+
+		print("----------------------------------------------------------")
 		for ihp in hp:
 			if ihp[0] == 0:
-				print('Segment Table[%02d] <- Flash addr: %08x, Size: %08x' % (len(hp) - 1, ihp[2], len(ihp[1])))
+				print(
+					"Segment Table[%02d] <- Flash addr: %08x, Size: %08x"
+					% (len(hp) - 1, ihp[2], len(ihp[1]))
+				)
 			else:
-				print('Segment: %08x <- Flash addr: %08x, Size: %08x' % (ihp[0], ihp[2], len(ihp[1])))
+				print(
+					"Segment: %08x <- Flash addr: %08x, Size: %08x"
+					% (ihp[0], ihp[2], len(ihp[1]))
+				)
 			stream = io.BytesIO(ihp[1])
-			if not phy.WriteBlockFlash(stream, ihp[2], len(ihp[1]), 0):
-				stream.close()
-				sys.exit(2)
+			ok = phy.WriteBlockFlash(stream, ihp[2], len(ihp[1]), 0)
 			stream.close()
-			segment += 1
-		print ('----------------------------------------------------------')
-		print ('Write Flash from file: %s - ok.' % args.filename)
-	#--------------------------------erase flash region
-	if args.operation == 'er':
-		offset = args.address & (MAX_FLASH_SIZE-1)
-		if offset >= MAX_FLASH_SIZE:
-			print ('Error Flash Start address!')
-			sys.exit(1)
-		size = args.size & (MAX_FLASH_SIZE-1)
-		if size >= MAX_FLASH_SIZE:
-			print ('Error Flash Erase size!')
-			sys.exit(1)
-		if size + offset > MAX_FLASH_SIZE:
-			size = MAX_FLASH_SIZE - offset
-		if size < 1:
-			print ('Error Flash Erase size!')
-			sys.exit(1)
-		if not phy.ExpFlashSize():
-			exit(4)
-		if not phy.EraseSectorsFlash(offset, size):
-			sys.exit(2)
-	#--------------------------------erase flash all
-	if args.operation == 'ea':
-		if not phy.cmd_erase_all_flash():
-			print ('Error: Erase All Flash!')
-			sys.exit(3)
-	if args.operation == 'ew':
-		if not phy.cmd_erase_work_flash():
-			print ('Error: Erase Flash Work Area!')
-			sys.exit(3)
-	if args.reset and args.monitor:
-		print("Send command 'reset', switch directly to runtime UART")
-		try:
-			reset_and_monitor(phy, args.monitor_baud)
-		except Exception as exc:
-			print('Error:', exc)
-			sys.exit(5)
-	elif args.reset:
-		phy.SendResetCmd()
-		print ("Send command 'reset' - ok")
-	elif args.monitor:
-		try:
-			monitor_serial_handle(phy._port, args.monitor_baud)
-		except Exception as exc:
-			print('Error:', exc)
-			sys.exit(5)
+			if not ok:
+				raise FatalError("Flash write failed")
 
-	if remote_temp_path:
-		try:
-			os.unlink(remote_temp_path)
-		except OSError:
-			pass
-	sys.exit(0)
+		print("----------------------------------------------------------")
+		print("Write Flash from file: %s - ok." % filename)
+
+		if do_reset and do_monitor:
+			print("Reset -> runtime UART monitor (same serial handle)")
+			reset_and_monitor(phy, monitor_baud)
+		elif do_reset:
+			phy.SendResetCmd()
+			print("Send command 'reset' - ok")
+		elif do_monitor:
+			monitor_serial_handle(phy._port, monitor_baud)
+
+	except FatalError as exc:
+		print("Error:", exc)
+		sys.exit(2)
+	finally:
+		if temp_path:
+			try:
+				os.unlink(temp_path)
+			except OSError:
+				pass
 
 if __name__ == '__main__':
 	main()
