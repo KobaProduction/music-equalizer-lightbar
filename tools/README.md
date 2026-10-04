@@ -1,58 +1,74 @@
-# MELB Firmware Tool
+# PHY62x2 Firmware Tool
 
-`melb_tool.py` is the project firmware utility for the
-`Music-Light-V3-221101` / ST17H66B target.
+phytool.py is the repository firmware utility for PHY62x2/ST17H66B ROM-UART
+bring-up, flashing, full-Flash backup and runtime UART monitoring.
 
-The normal development path is explicit and URL-driven. The tool does not
-hard-code a repository artifact, branch, release, or development channel.
+The project-facing CLI is intentionally small:
 
-Example: download and flash an explicit HEX, then immediately continue on the
-same open COM port as a 115200 runtime UART monitor:
+- flash — flash an Intel HEX from a local path or HTTP/HTTPS URL;
+- dump — save the complete external Flash to a local binary file;
+- monitor — open the runtime UART;
+- info — print chip/Flash information.
 
-```powershell
-python melb_tool.py -p COM5 --url "https://example.invalid/firmware.hex" --monitor
-```
+## Flash
 
-Optional verification can be supplied either directly:
-
-```powershell
-python melb_tool.py -p COM5 --url "https://example.invalid/firmware.hex" --sha256 <sha256> --monitor
-```
-
-or through a JSON manifest:
+Local file:
 
 ```powershell
-python melb_tool.py -p COM5 --url "https://example.invalid/firmware.hex" --manifest-url "https://example.invalid/firmware.json" --monitor
+python phytool.py -p COM5 flash --target=".\\firmware.hex" --monitor
 ```
 
-If a manifest contains `firmware_url`, `--url` may be omitted. Supported
-manifest metadata includes `label`, `board`, `mcu`, `source_commit`,
-`validation`, `size`, and `sha256`.
-
-Remote flashing uses 500000 baud by default. After the ROM reset command the
-tool keeps the same serial handle open, flushes the reset command at the ROM
-baud, switches that handle directly to the runtime baud (115200 by default),
-and starts streaming immediately. There is no intentional post-reset delay or
-close/reopen cycle.
-
-Standalone monitor mode remains available:
+Web URL:
 
 ```powershell
-python melb_tool.py -p COM5 --monitor
+python phytool.py -p COM5 flash --target="https://example.invalid/firmware.hex" --monitor
 ```
 
-The existing local ROM-UART operations (`wh`, `we`, `wf`, `rf`, etc.) remain
-available for local files, backup, erase, and low-level bring-up work.
+For a HEX target, the tool automatically probes a sibling manifest with the
+same basename and a .json suffix. firmware.hex maps to firmware.json, including
+for web URLs. Missing local JSON files and HTTP 404 are treated as optional and
+flashing continues without a manifest. Other manifest errors are reported.
 
-A future release resolver may provide a convenient default/latest release
-selection, but it must resolve to an explicit artifact URL/manifest rather than
-embedding a mutable development artifact in the tool.
+A manifest may provide label, board, mcu, source_commit, validation, size,
+sha256, and a firmware reference. For an explicit HEX --target, that target
+remains authoritative; an auto-discovered manifest may validate and describe it
+but may not silently redirect flashing to another artifact.
+
+A JSON manifest may itself be the target:
+
+```powershell
+python phytool.py -p COM5 flash --target="https://example.invalid/firmware.json" --monitor
+```
+
+Use --manifest to override auto-discovery, --no-manifest to disable it, or
+--sha256 to supply an expected digest directly.
+
+Remote flashing defaults to 500000 baud. With --monitor, after the ROM reset
+command is flushed the same open serial handle is switched immediately to
+runtime 115200 baud and starts reading. There is no close/reopen cycle and no
+intentional post-reset delay.
+
+## Dump
+
+```powershell
+python phytool.py -p COM5 dump --target=".\\board-backup.bin"
+```
+
+Dump transfer defaults to 500000 baud.
+
+## Monitor
+
+```powershell
+python phytool.py -p COM5 monitor
+```
+
+The default runtime baud is 115200.
 
 ## Attribution
 
-This utility is derived from the ROM-UART utility at:
+The ROM-UART implementation is derived from:
 
 https://github.com/pvvx/THB2/blob/master/rdwr_phy62x2.py
 
-The upstream source attribution and permissive source license used for this
-modified tool are preserved in `pvvx_SOURCE_LICENSE.txt`.
+The upstream source attribution and permissive source license used for the
+modified implementation are preserved in UPSTREAM_LICENSE.txt.

@@ -136,31 +136,42 @@ The small SRAM-only image is for early loader/GPIO bring-up, not the final BLE f
 
 BLE will require a larger validated SRAM/XIP layout and ROM-symbol contract. The external Phyplus/pvvx GCC integration is documented in [PHYPLUS_BLE.md](PHYPLUS_BLE.md).
 
-## MELB firmware utility
+## PHY62x2 firmware utility
 
-The repository carries `tools/melb_tool.py`, a project firmware utility derived
-from the upstream PHY62x2 ROM-UART flasher. Upstream attribution and license are
-preserved under `tools/`; the project-facing command and UI use MELB naming.
+The repository carries tools/phytool.py, a general PHY62x2/ST17H66B ROM-UART
+utility derived from the upstream flasher documented in provenance. The normal
+interface exposes flash, dump, monitor, and info.
 
-Remote firmware is always selected explicitly. The current development form is:
+Flash a local or remote HEX:
 
 ```powershell
-python melb_tool.py -p COM5 --url "<full firmware HEX URL>" --monitor
+python phytool.py -p COM5 flash --target="<path-or-URL-to-firmware.hex>" --monitor
 ```
 
-`--manifest-url` may provide firmware metadata, expected size and SHA-256, and
-`--sha256` may be used directly. There is no hard-coded artifact/dev or release
-URL inside the utility. A future release resolver can be added on top of this
-explicit URL contract once the release layout is fixed.
+For a HEX target the utility automatically probes a sibling JSON manifest with
+the same basename. A missing local manifest or HTTP 404 is treated as optional
+and flashing continues. If present, the manifest may supply metadata, expected
+size and SHA-256. An explicit HEX target remains authoritative and cannot be
+silently replaced by an auto-discovered manifest. A JSON manifest may itself be
+passed as --target, in which case its firmware reference is resolved relative
+to that manifest.
 
-Remote flashing uses 500000 baud by default. With `--monitor`, the reset command
-is flushed at the ROM baud and the same already-open serial handle is switched
-immediately to 115200 for runtime logging. The tool does not close/reopen the
-port and does not insert the previous 350 ms delay, so early boot output is much
-less likely to be lost. Ctrl+C leaves monitor mode.
+Use --manifest to select a manifest explicitly, --no-manifest to disable
+auto-discovery, or --sha256 to provide the expected digest directly.
 
-The existing local ROM-UART operations remain available for local HEX/BIN
-flashing, reads/backups and erase operations.
+Remote flashing defaults to 500000 baud. With --monitor, the reset command is
+flushed at the ROM baud and the same already-open serial handle is switched
+immediately to 115200 for runtime logging; there is no close/reopen cycle or
+intentional post-reset delay.
 
-The repository may still publish CI/dev artifacts for development convenience,
-but the utility is not coupled to any particular artifact branch.
+Create a full Flash backup:
+
+```powershell
+python phytool.py -p COM5 dump --target=".\board-backup.bin"
+```
+
+Open runtime UART without flashing:
+
+```powershell
+python phytool.py -p COM5 monitor
+```
