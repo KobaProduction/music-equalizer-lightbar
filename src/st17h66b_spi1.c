@@ -26,6 +26,8 @@
 #define ST17H66B_SPI1_SSIEN  (*(volatile uint8_t  *)(ST17H66B_SPI1_BASE + 0x08u))
 #define ST17H66B_SPI1_SER    (*(volatile uint8_t  *)(ST17H66B_SPI1_BASE + 0x10u))
 #define ST17H66B_SPI1_BAUDR  (*(volatile uint32_t *)(ST17H66B_SPI1_BASE + 0x14u))
+#define ST17H66B_SPI1_TXFTLR (*(volatile uint32_t *)(ST17H66B_SPI1_BASE + 0x18u))
+#define ST17H66B_SPI1_TXFLR  (*(volatile uint32_t *)(ST17H66B_SPI1_BASE + 0x20u))
 #define ST17H66B_SPI1_SR     (*(volatile uint8_t  *)(ST17H66B_SPI1_BASE + 0x28u))
 #define ST17H66B_SPI1_IMR    (*(volatile uint32_t *)(ST17H66B_SPI1_BASE + 0x2cu))
 #define ST17H66B_SPI1_DMACR  (*(volatile uint32_t *)(ST17H66B_SPI1_BASE + 0x4cu))
@@ -131,9 +133,10 @@ static int st17h66b_spi1_hw_init(uint32_t baud_hz)
     s_spi1_pclk_hz = pclk_hz;
     s_spi1_divider = divider;
     s_spi1_effective_baud_hz = pclk_hz / divider;
+    ST17H66B_SPI1_TXFTLR = 4u;
     ST17H66B_SPI1_IMR = 0u;
     ST17H66B_SPI1_DMACR = 0u;
-    ST17H66B_SPI1_DMATDLR = 0u;
+    ST17H66B_SPI1_DMATDLR = 4u;
     ST17H66B_SPI1_SER = 1u;
     ST17H66B_SPI1_SSIEN = 1u;
 
@@ -179,7 +182,12 @@ static int start_dma_chunk(void)
      * TX-empty request and corrupt the first WS2812 symbols.
      */
     ST17H66B_SPI1_DMACR &= ~UINT32_C(0x02);
-    ST17H66B_SPI1_DMATDLR = 0u;
+    /*
+     * Request DMA while the TX FIFO still has headroom instead of waiting
+     * until it is empty. With 4 MHz SPI this keeps several bytes buffered and
+     * prevents serial-clock gaps caused by DMA service latency.
+     */
+    ST17H66B_SPI1_DMATDLR = 4u;
 
     const int cfg_result = hal_dma_config_channel(DMA_CH_0, &cfg);
     if (cfg_result != 0) {
