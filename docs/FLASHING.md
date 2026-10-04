@@ -156,7 +156,12 @@ The dev channel is explicitly not a release or hardware-accepted image. The
 manifest identifies the exact source commit and validation label for each
 published development build.
 
-The stable dev channel is refreshed by the publish-dev workflow after a
-successful build workflow run on debug/osal-heartbeat. The publisher checks out
-the exact successful source SHA, rebuilds the HappyLighting image, and updates
-the fixed-name HEX plus its manifest on artifact/dev.
+The stable dev channel is refreshed by the publish-dev workflow after a push
+build run on debug/osal-heartbeat completes. The publisher checks out that
+exact source SHA, rebuilds the HappyLighting image, and updates the fixed-name
+HEX plus its manifest on artifact/dev only if its own target build succeeds.
+
+The publisher is intentionally gated by its own HappyLighting dev-target build,
+not by the aggregate debug-branch build result. This keeps unrelated
+experimental targets from blocking dev publication while still preventing a
+failed dev firmware build from being published.
