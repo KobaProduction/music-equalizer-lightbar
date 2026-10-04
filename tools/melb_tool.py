@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-# rdwr_phy62x2.py 27.01.2025 pvvx #
-# Music Equalizer Light Bar integration: KobaProduction, 2026.
-# Based on pvvx/THB2 rdwr_phy62x2.py under the repository SOURCE LICENSE.
+# MELB Firmware Tool
+# KobaProduction, 2026.
+# Derived from the ROM-UART utility at https://github.com/pvvx/THB2/blob/master/rdwr_phy62x2.py
+# See pvvx_SOURCE_LICENSE.txt for upstream attribution/license.
 
 import serial
 import time
@@ -32,14 +33,10 @@ PHY_WR_BLK_SIZE = 0x2000
 PHY_FLASH_ADDR = 0x11000000
 PHY_SRAM_ADDR = 0x1fff0000
 
-__progname__ = 'PHY62x2/ST17H66B/TG7100B Utility'
-__filename__ = 'rdwr_phy62x2_melb.py'
-__version__ = "08.02.25-melb.1"
+__progname__ = 'MELB Firmware Tool'
+__filename__ = 'melb_tool.py'
+__version__ = "0.2.0"
 
-DEV_MANIFEST_URL = (
-    "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/"
-    "artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.json"
-)
 
 def ParseHexFile(hexfile):
 	try:
@@ -596,72 +593,87 @@ def arg_auto_int(x):
 def _download_bytes(url):
 	req = urllib.request.Request(
 		url,
-		headers={"User-Agent": "music-equalizer-lightbar-dev-flasher/1"},
+		headers={"User-Agent": "melb-firmware-tool/0.2"},
 	)
 	with urllib.request.urlopen(req, timeout=30) as response:
 		return response.read()
 
-def download_dev_firmware(manifest_url=DEV_MANIFEST_URL):
-	print("Dev channel: downloading manifest")
-	print("Manifest:", manifest_url)
-	manifest_raw = _download_bytes(manifest_url)
+def _load_manifest(manifest_url):
+	print("Manifest URL:", manifest_url)
+	raw = _download_bytes(manifest_url)
 	try:
-		manifest = json.loads(manifest_raw.decode("utf-8"))
+		manifest = json.loads(raw.decode("utf-8"))
 	except Exception as exc:
-		raise FatalError("Invalid dev manifest: %s" % exc)
+		raise FatalError("Invalid firmware manifest: %s" % exc)
+	if not isinstance(manifest, dict):
+		raise FatalError("Firmware manifest must be a JSON object")
+	return manifest
 
-	required = (
-		"firmware_url",
-		"sha256",
-		"size",
-		"board",
-		"mcu",
-		"source_commit",
-		"label",
-	)
-	for key in required:
-		if key not in manifest:
-			raise FatalError("Dev manifest missing field: %s" % key)
+def download_firmware(firmware_url=None, manifest_url=None, expected_sha256=None):
+	manifest = {}
+	if manifest_url:
+		manifest = _load_manifest(manifest_url)
 
-	print("Firmware:", manifest["label"])
-	print("Board:", manifest["board"])
-	print("MCU:", manifest["mcu"])
-	print("Source commit:", manifest["source_commit"])
-	print("Expected size:", manifest["size"], "bytes")
-	print("Expected SHA-256:", manifest["sha256"])
+	if not firmware_url:
+		firmware_url = manifest.get("firmware_url")
+	if not firmware_url:
+		raise FatalError("Firmware URL is required (--url or manifest firmware_url)")
 
-	image = _download_bytes(manifest["firmware_url"])
+	print("Firmware URL:", firmware_url)
+	if manifest.get("label"):
+		print("Firmware:", manifest["label"])
+	if manifest.get("board"):
+		print("Board:", manifest["board"])
+	if manifest.get("mcu"):
+		print("MCU:", manifest["mcu"])
+	if manifest.get("source_commit"):
+		print("Source commit:", manifest["source_commit"])
+	if manifest.get("validation"):
+		print("Validation:", manifest["validation"])
+
+	image = _download_bytes(firmware_url)
 	digest = hashlib.sha256(image).hexdigest()
-	if len(image) != int(manifest["size"]):
+
+	manifest_size = manifest.get("size")
+	if manifest_size is not None and len(image) != int(manifest_size):
 		raise FatalError(
 			"Downloaded firmware size mismatch: got %d, expected %d"
-			% (len(image), int(manifest["size"]))
-		)
-	if digest.lower() != str(manifest["sha256"]).lower():
-		raise FatalError(
-			"Downloaded firmware SHA-256 mismatch: got %s, expected %s"
-			% (digest, manifest["sha256"])
+			% (len(image), int(manifest_size))
 		)
 
-	fd, path = tempfile.mkstemp(prefix="melb-dev-", suffix=".hex")
+	manifest_sha = manifest.get("sha256")
+	expected = expected_sha256 or manifest_sha
+	if expected and digest.lower() != str(expected).lower():
+		raise FatalError(
+			"Downloaded firmware SHA-256 mismatch: got %s, expected %s"
+			% (digest, expected)
+		)
+
+	print("Downloaded size:", len(image), "bytes")
+	print("SHA-256:", digest)
+	if expected:
+		print("SHA-256 verification: OK")
+	else:
+		print("SHA-256 verification: not requested (digest shown above)")
+
+	fd, path = tempfile.mkstemp(prefix="melb-fw-", suffix=".hex")
 	os.close(fd)
 	with open(path, "wb") as out:
 		out.write(image)
 
-	print("Downloaded:", manifest["firmware_url"])
-	print("Verified SHA-256:", digest)
 	print("Local temporary image:", path)
 	print("---------------------------------------------------------")
 	return manifest, path
 
-def serial_monitor(port, baud=115200, startup_delay=0.35):
-	print("Opening UART monitor: %s @ %d 8N1" % (port, baud))
+def monitor_serial_handle(ser, baud=115200):
+	previous_baud = getattr(ser, "baudrate", None)
+	ser.baudrate = baud
+	ser.timeout = 0.02
+	print(
+		"UART monitor: same open port, %s -> %d baud"
+		% (str(previous_baud), baud)
+	)
 	print("Press Ctrl+C to stop.")
-	time.sleep(startup_delay)
-	try:
-		ser = serial.Serial(port, baudrate=baud, timeout=0.1)
-	except Exception as exc:
-		raise FatalError("Cannot open UART monitor on %s: %s" % (port, exc))
 	try:
 		while True:
 			data = ser.read(ser.in_waiting or 1)
@@ -670,8 +682,34 @@ def serial_monitor(port, baud=115200, startup_delay=0.35):
 				sys.stdout.buffer.flush()
 	except KeyboardInterrupt:
 		print("\nUART monitor stopped.")
+
+def standalone_serial_monitor(port, baud=115200):
+	print("Opening UART monitor: %s @ %d 8N1" % (port, baud))
+	try:
+		ser = serial.Serial(port, baudrate=baud, timeout=0.02)
+	except Exception as exc:
+		raise FatalError("Cannot open UART monitor on %s: %s" % (port, exc))
+	try:
+		monitor_serial_handle(ser, baud)
 	finally:
 		ser.close()
+
+def reset_and_monitor(phy, baud=115200):
+	ser = phy._port
+	try:
+		ser.reset_input_buffer()
+	except Exception:
+		try:
+			ser.flushInput()
+		except Exception:
+			pass
+
+	# The reset command must leave the host at the ROM baud. flush() guarantees
+	# those bytes have physically left the UART before changing the host baud.
+	ser.write(b"reset ")
+	ser.flush()
+	monitor_serial_handle(ser, baud)
+
 
 def main():
 	parser = argparse.ArgumentParser(description='%s version %s' % (__progname__, __version__), prog = __filename__)
@@ -684,12 +722,12 @@ def main():
 	parser.add_argument('--start', '-s',  help = 'Application start address for hex writer (default: 0x%08x)' % DEF_START_RUN_APP_ADDR, type = arg_auto_int, default = DEF_START_RUN_APP_ADDR)
 	parser.add_argument('--write', '-w',  help = 'Flash starting address for hex writer (default: 0x%08x)' % DEF_START_WR_FLASH_ADDR, type = arg_auto_int, default = DEF_START_WR_FLASH_ADDR)
 	parser.add_argument('--tm', '-t',  action='store_true', help = 'If pin TM is set "1"')
-	parser.add_argument('--dev', action='store_true', help = 'Download, verify and flash the stable MELB dev firmware')
-	parser.add_argument('--dev-manifest-url', default=DEV_MANIFEST_URL, help = 'Override MELB dev manifest URL')
-	parser.add_argument('--dev-baud', type=arg_auto_int, default=DEV_RUN_BAUD, help = 'ROM write baud for --dev (default: 500000)')
-	parser.add_argument('--monitor', action='store_true', help = 'Open UART monitor after reset; with no operation, monitor only')
-	parser.add_argument('--monitor-baud', type=arg_auto_int, default=115200, help = 'UART monitor baud rate (default: 115200)')
-	parser.add_argument('--monitor-delay', type=float, default=0.35, help = 'Seconds to wait after reset before opening monitor')
+	parser.add_argument('--url', help = 'Full URL of a remote Intel HEX firmware image to download and flash')
+	parser.add_argument('--manifest-url', help = 'Optional JSON manifest URL with firmware metadata, size and SHA-256')
+	parser.add_argument('--sha256', help = 'Optional expected SHA-256 for --url')
+	parser.add_argument('--flash-baud', type=arg_auto_int, default=DEV_RUN_BAUD, help = 'ROM write baud for remote firmware (default: 500000)')
+	parser.add_argument('--monitor', action='store_true', help = 'After reset, continue on the same open serial port at runtime baud; without a flash operation, monitor only')
+	parser.add_argument('--monitor-baud', type=arg_auto_int, default=115200, help = 'Runtime UART baud rate (default: 115200)')
 
 	subparsers = parser.add_subparsers(
 			dest='operation',
@@ -744,23 +782,23 @@ def main():
 	
 	args = parser.parse_args()
 
-	dev_temp_path = None
-	if args.dev:
+	remote_temp_path = None
+	if args.url or args.manifest_url:
 		if args.operation is not None:
-			parser.error('--dev cannot be combined with an explicit operation')
+			parser.error('--url/--manifest-url cannot be combined with an explicit operation')
 		try:
-			_, dev_temp_path = download_dev_firmware(args.dev_manifest_url)
+			_, remote_temp_path = download_firmware(args.url, args.manifest_url, args.sha256)
 		except Exception as exc:
 			print('Error:', exc)
 			sys.exit(2)
 		args.operation = 'wh'
-		args.filename = dev_temp_path
-		args.baud = args.dev_baud
+		args.filename = remote_temp_path
+		args.baud = args.flash_baud
 		args.reset = True
 
 	if args.operation is None and args.monitor:
 		try:
-			serial_monitor(args.port, args.monitor_baud, 0.0)
+			standalone_serial_monitor(args.port, args.monitor_baud)
 		except Exception as exc:
 			print('Error:', exc)
 			sys.exit(2)
@@ -950,24 +988,26 @@ def main():
 		if not phy.cmd_erase_work_flash():
 			print ('Error: Erase Flash Work Area!')
 			sys.exit(3)
-	if args.reset:
+	if args.reset and args.monitor:
+		print("Send command 'reset', switch directly to runtime UART")
+		try:
+			reset_and_monitor(phy, args.monitor_baud)
+		except Exception as exc:
+			print('Error:', exc)
+			sys.exit(5)
+	elif args.reset:
 		phy.SendResetCmd()
 		print ("Send command 'reset' - ok")
-
-	if args.monitor:
+	elif args.monitor:
 		try:
-			phy._port.close()
-		except Exception:
-			pass
-		try:
-			serial_monitor(args.port, args.monitor_baud, args.monitor_delay)
+			monitor_serial_handle(phy._port, args.monitor_baud)
 		except Exception as exc:
 			print('Error:', exc)
 			sys.exit(5)
 
-	if dev_temp_path:
+	if remote_temp_path:
 		try:
-			os.unlink(dev_temp_path)
+			os.unlink(remote_temp_path)
 		except OSError:
 			pass
 	sys.exit(0)
