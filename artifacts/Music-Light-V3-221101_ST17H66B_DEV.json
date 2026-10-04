@@ -1,12 +1,12 @@
 {
   "channel": "dev",
-  "label": "Fix LED channel order and final latch",
+  "label": "Diagnose LED tail with 40-pixel frame",
   "board": "Music-Light-V3-221101",
   "mcu": "ST17H66B / PHY6222M005",
   "source_branch": "feature/product-runtime",
-  "source_commit": "bb6123cab43ffd0fef5941ed797fd9112431683c",
+  "source_commit": "b7964aef5501c4b9b2fdd0d5dad1f738083aef81",
   "validation": "build-pass; hardware validation tracked separately",
   "firmware_url": "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex",
   "size": 147322,
-  "sha256": "33b0af932d71f0c0195799f9cc79e959729246ad27b03b2722915c53b5ed7a87"
+  "sha256": "bfdf50c008577be993f377b8ba5cb02375d383abdb4c086f960f86a3bc455194"
 }
