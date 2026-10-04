@@ -336,40 +336,48 @@ void melb_happylighting_local_tick(void)
     }
 
     /*
-     * Hardware bring-up pattern: RED/OFF/GREEN/OFF/BLUE/OFF at 500 ms per
-     * phase and deliberately low brightness. This makes both color ordering
-     * and black-frame/latch behaviour visually unambiguous.
+     * Hardware bring-up pattern: SLOT0/OFF/SLOT1/OFF/SLOT2/OFF at 500 ms
+     * per phase. This identifies the physical colour behind each transmitted
+     * byte without assuming a GRB/RGB/BRG order.
      */
     if (++rgb_test_ticks < 50u) {
         return;
     }
     rgb_test_ticks = 0u;
 
-    control_state.mode = HAPPY_LIGHTING_MODE_STATIC;
-    control_state.brightness = 32u;
-    control_state.red = 0u;
-    control_state.green = 0u;
-    control_state.blue = 0u;
-
+    /*
+     * Raw wire-slot probe. ws2812b_spi_encode() currently serializes fields as
+     * [green, red, blue], so SLOT0/SLOT1/SLOT2 intentionally address those
+     * three transmitted bytes without claiming a physical colour identity.
+     */
+    ws2812b_pixel_t probe = {0};
+    const uint8_t wire_level = gamma_correct(32u);
     const char *phase_name = "OFF";
+
     if (rgb_test_phase == 0u) {
-        control_state.red = 255u;
-        phase_name = "RED";
+        probe.green = wire_level; /* transmitted byte 0 */
+        phase_name = "SLOT0";
     } else if (rgb_test_phase == 2u) {
-        control_state.green = 255u;
-        phase_name = "GREEN";
+        probe.red = wire_level;   /* transmitted byte 1 */
+        phase_name = "SLOT1";
     } else if (rgb_test_phase == 4u) {
-        control_state.blue = 255u;
-        phase_name = "BLUE";
+        probe.blue = wire_level;  /* transmitted byte 2 */
+        phase_name = "SLOT2";
     }
 
-    LOG("MELB: RGB test %s brightness=32 gamma_out=%u dma_done=%lu\n",
-        phase_name, gamma_correct(32u),
-        (unsigned long)st17h66b_spi1_completed_frames());
+    fill_pixels(probe);
+    const size_t encoded = ws2812b_spi_encode(
+        pixels, MELB_LED_COUNT, spi_frame, sizeof(spi_frame));
+    int spi_result = -1;
+    if (encoded == sizeof(spi_frame)) {
+        spi_result = st17h66b_spi1_write(spi_frame, encoded);
+    }
+
+    LOG("MELB: wire test %s raw=%u dma_done=%lu spi=%d\n",
+        phase_name, wire_level,
+        (unsigned long)st17h66b_spi1_completed_frames(), spi_result);
 
     rgb_test_phase = (uint8_t)((rgb_test_phase + 1u) % 6u);
-    refresh_status_value();
-    render_state();
 }
 
 static uint8 happy_read_attr(
