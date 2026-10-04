@@ -1,12 +1,12 @@
 {
   "channel": "dev",
-  "label": "Align WS2812 cells to SSI byte frames",
+  "label": "Prefill SSI FIFO before WS2812 DMA transfer",
   "board": "Music-Light-V3-221101",
   "mcu": "ST17H66B / PHY6222M005",
   "source_branch": "debug/osal-heartbeat",
-  "source_commit": "f252582619153442ab21542562188aa6a61b694b",
+  "source_commit": "2dc822e66c650d9079bc87edf16fa08dd6d0cb00",
   "validation": "build-pass; hardware validation tracked separately",
   "firmware_url": "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex",
-  "size": 146819,
-  "sha256": "f334be66ef396f2367f1126555fcbdbdbb215b2cb3feca6cf72dccfcd4aad1cd"
+  "size": 147150,
+  "sha256": "fab91f6c4773b00cf1bce4db46f019ab0b243bdeaa07cba10bfdee2a25fffa65"
 }
