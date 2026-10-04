@@ -39,39 +39,20 @@ static void test_ws2812b_spi_encoding(void)
         .blue = 0xffu,
     };
 
-    uint8_t black_encoded[WS2812B_SPI_BYTES_PER_PIXEL + WS2812B_SPI_RESET_BYTES] = {0};
-    uint8_t white_encoded[WS2812B_SPI_BYTES_PER_PIXEL + WS2812B_SPI_RESET_BYTES] = {0};
+    uint8_t black_encoded[WS2812B_SPI_BYTES_PER_PIXEL] = {0};
+    uint8_t white_encoded[WS2812B_SPI_BYTES_PER_PIXEL] = {0};
 
     assert(ws2812b_spi_encode(
         &black, 1u, black_encoded, sizeof(black_encoded)) == sizeof(black_encoded));
     assert(ws2812b_spi_encode(
         &white, 1u, white_encoded, sizeof(white_encoded)) == sizeof(white_encoded));
 
-    const uint8_t zero_symbol_byte[5] = {0xc6u, 0x31u, 0x8cu, 0x63u, 0x18u};
-    const uint8_t one_symbol_byte[5] = {0xe7u, 0x39u, 0xceu, 0x73u, 0x9cu};
-
-    for (size_t component = 0u; component < 3u; ++component) {
-        assert(memcmp(
-            &black_encoded[component * 5u],
-            zero_symbol_byte,
-            sizeof(zero_symbol_byte)) == 0);
-
-        assert(memcmp(
-            &white_encoded[component * 5u],
-            one_symbol_byte,
-            sizeof(one_symbol_byte)) == 0);
+    for (size_t i = 0u; i < sizeof(black_encoded); ++i) {
+        assert(black_encoded[i] == 0x88u);
+        assert(white_encoded[i] == 0xeeu);
     }
 
-    for (size_t i = WS2812B_SPI_BYTES_PER_PIXEL;
-         i < sizeof(black_encoded);
-         ++i) {
-        assert(black_encoded[i] == 0u);
-        assert(white_encoded[i] == 0u);
-    }
-
-    assert(ws2812b_spi_encoded_size(32u)
-        == (32u * (size_t)WS2812B_SPI_BYTES_PER_PIXEL)
-            + (size_t)WS2812B_SPI_RESET_BYTES);
+    assert(ws2812b_spi_encoded_size(32u) == 384u);
 }
 
 

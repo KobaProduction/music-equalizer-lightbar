@@ -1,28 +1,25 @@
 #include "ws2812b_spi.h"
 
-static void encode_byte(uint8_t value, uint8_t output[5])
+static void encode_byte(uint8_t value, uint8_t output[4])
 {
-    uint64_t encoded = 0u;
+    for (uint8_t pair = 0u; pair < 4u; ++pair) {
+        const uint8_t shift = (uint8_t)(6u - (pair * 2u));
+        const uint8_t first =
+            ((value >> (shift + 1u)) & 1u) != 0u
+                ? WS2812B_SPI_SYMBOL_1
+                : WS2812B_SPI_SYMBOL_0;
+        const uint8_t second =
+            ((value >> shift) & 1u) != 0u
+                ? WS2812B_SPI_SYMBOL_1
+                : WS2812B_SPI_SYMBOL_0;
 
-    for (uint8_t bit = 0u; bit < 8u; ++bit) {
-        const uint8_t mask = (uint8_t)(UINT8_C(0x80) >> bit);
-        const uint8_t symbol =
-            (value & mask) != 0u ? WS2812B_SPI_SYMBOL_1 : WS2812B_SPI_SYMBOL_0;
-
-        encoded = (encoded << 5u) | (uint64_t)symbol;
+        output[pair] = (uint8_t)((first << 4u) | second);
     }
-
-    output[0] = (uint8_t)(encoded >> 32u);
-    output[1] = (uint8_t)(encoded >> 24u);
-    output[2] = (uint8_t)(encoded >> 16u);
-    output[3] = (uint8_t)(encoded >> 8u);
-    output[4] = (uint8_t)encoded;
 }
 
 size_t ws2812b_spi_encoded_size(size_t pixel_count)
 {
-    return (pixel_count * (size_t)WS2812B_SPI_BYTES_PER_PIXEL)
-        + (size_t)WS2812B_SPI_RESET_BYTES;
+    return pixel_count * (size_t)WS2812B_SPI_BYTES_PER_PIXEL;
 }
 
 size_t ws2812b_spi_encode(
@@ -41,26 +38,15 @@ size_t ws2812b_spi_encode(
 
     for (size_t i = 0u; i < pixel_count; ++i) {
         /*
-         * WS2812-compatible wire order is GRB.
-         *
-         * At 4 MHz one SPI bit is 250 ns and one WS2812 bit is encoded as
-         * five continuous SPI bits:
-         *   0 -> 11000 = 0.50 us HIGH + 0.75 us LOW
-         *   1 -> 11100 = 0.75 us HIGH + 0.50 us LOW
-         *
-         * This produces an exact 1.25 us protocol cell and stays close to
-         * established FastLED WS2812 timing families.
+         * Recovered factory action node reads input[1], input[0], input[2]:
+         * RGB input therefore becomes GRB on the wire.
          */
         encode_byte(pixels[i].green, &output[offset]);
-        offset += 5u;
+        offset += 4u;
         encode_byte(pixels[i].red, &output[offset]);
-        offset += 5u;
+        offset += 4u;
         encode_byte(pixels[i].blue, &output[offset]);
-        offset += 5u;
-    }
-
-    for (size_t i = 0u; i < (size_t)WS2812B_SPI_RESET_BYTES; ++i) {
-        output[offset++] = 0u;
+        offset += 4u;
     }
 
     return offset;

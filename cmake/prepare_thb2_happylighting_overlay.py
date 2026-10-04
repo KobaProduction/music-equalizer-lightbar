@@ -206,7 +206,7 @@ def main() -> None:
     makefile = replace_once(
         makefile,
         "SRCS += $(SDK_PATH)/components/driver/clock/clock.c",
-        "SRCS += $(SDK_PATH)/components/driver/clock/clock.c\nSRCS += $(SDK_PATH)/components/driver/dma/dma.c",
+        "SRCS += $(SDK_PATH)/components/driver/clock/clock.c\nSRCS += $(SDK_PATH)/components/driver/dma/dma.c\nSRCS += $(SDK_PATH)/components/driver/spi/spi.c",
         "enable PHYplus DMA driver",
     )
     marker = "SRC_PRJ += sbp_profile.c\n"

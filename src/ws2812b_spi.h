@@ -5,16 +5,16 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define WS2812B_SPI_BAUD_HZ UINT32_C(4000000)
-#define WS2812B_SPI_SYMBOL_0 UINT8_C(0x18)
-#define WS2812B_SPI_SYMBOL_1 UINT8_C(0x1c)
-#define WS2812B_SPI_BYTES_PER_PIXEL UINT8_C(15)
-
 /*
- * 160 zero bytes are exactly 320 us at 4 MHz. The line remains LOW during
- * these bytes, providing a conservative WS2812 reset/latch interval.
+ * Factory firmware behavior contract recovered from the original dump:
+ * requested SPI baud 3 MHz, 4 SPI bits per LED bit,
+ * 0 -> 1000, 1 -> 1110, GRB wire order, 12 SPI bytes/pixel.
  */
-#define WS2812B_SPI_RESET_BYTES UINT8_C(160)
+#define WS2812B_SPI_BAUD_HZ UINT32_C(3000000)
+#define WS2812B_SPI_SYMBOL_0 UINT8_C(0x8)
+#define WS2812B_SPI_SYMBOL_1 UINT8_C(0xe)
+#define WS2812B_SPI_BYTES_PER_PIXEL UINT8_C(12)
+#define WS2812B_SPI_RESET_BYTES UINT8_C(0)
 
 size_t ws2812b_spi_encoded_size(size_t pixel_count);
 
