@@ -1,10 +1,10 @@
 {
   "channel": "dev",
-  "label": "Size LED frame buffers for guard slots",
+  "label": "Restore factory DMA completion behavior",
   "board": "Music-Light-V3-221101",
   "mcu": "ST17H66B / PHY6222M005",
   "source_branch": "feature/product-runtime",
-  "source_commit": "b957ea736f673667e27230ab5911d5d10a758eda",
+  "source_commit": "a1460be84ac426c572ea97b562c24888bee555a1",
   "validation": "build-pass; hardware validation tracked separately",
   "firmware_url": "https://raw.githubusercontent.com/KobaProduction/music-equalizer-lightbar/artifact/dev/artifacts/Music-Light-V3-221101_ST17H66B_DEV.hex",
   "size": 147571,
